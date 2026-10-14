@@ -13,11 +13,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
 	"github.com/akbarbinaji/patrolhub/internal/config"
+	"github.com/akbarbinaji/patrolhub/internal/httpx"
+	"github.com/akbarbinaji/patrolhub/internal/service"
 	"github.com/akbarbinaji/patrolhub/migrations"
 	"github.com/akbarbinaji/patrolhub/web"
 )
@@ -81,11 +83,7 @@ func migrate(cfg config.Config) error {
 	if err := goose.SetDialect("postgres"); err != nil {
 		return err
 	}
-	// No migrations exist until step 2 adds the first one.
-	if err := goose.Up(conn, "."); err != nil && !errors.Is(err, goose.ErrNoMigrationFiles) {
-		return err
-	}
-	return nil
+	return goose.Up(conn, ".")
 }
 
 func serve(cfg config.Config) error {
@@ -97,15 +95,26 @@ func serve(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	r := chi.NewRouter()
-	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte("ok"))
-	})
-	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServerFS(static)))
 
-	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: r, ReadHeaderTimeout: 10 * time.Second}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	handler, err := httpx.NewRouter(httpx.Deps{
+		Config:   cfg,
+		Sessions: httpx.NewSessionManager(pool, cfg),
+		Settings: service.NewSettingsService(pool),
+		Static:   static,
+	})
+	if err != nil {
+		return err
+	}
+	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 
 	go func() {
 		<-ctx.Done()

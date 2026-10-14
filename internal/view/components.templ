@@ -1,0 +1,37 @@
+package view
+
+import "github.com/akbarbinaji/patrolhub/internal/domain"
+
+// StatusDot is the attendance marker. Meaning never relies on colour alone:
+// each status has its own icon and an aria-label such as "7 September: hadir".
+templ StatusDot(status domain.AttendanceStatus, label string) {
+	switch status {
+		case domain.Present:
+			<span role="img" aria-label={ label } class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#1E4FB8] text-white">
+				<svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10l4 4 8-8"></path></svg>
+			</span>
+		case domain.Absent:
+			<span role="img" aria-label={ label } class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#C2410C] text-white">
+				<svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"></path></svg>
+			</span>
+		case domain.RainedOut:
+			<span role="img" aria-label={ label } class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#DCE7F5] text-sm font-bold leading-none text-[#1E3A6E]">h</span>
+		default:
+			<span class="inline-block h-7 w-7" aria-hidden="true"></span>
+	}
+}
+
+templ StatusBadge(status domain.NightStatus) {
+	<span class={ "badge", nightStatusClass(status) }>{ nightStatusLabel(status) }</span>
+}
+
+// FlashMessage kind is one of "success", "error", "warning", "info".
+templ FlashMessage(kind, text string) {
+	<div role="alert" class={ "alert", flashClass(kind) }>
+		<span>{ text }</span>
+	</div>
+}
+
+templ EmptyState(text string) {
+	<p class="py-8 text-center text-sm text-base-content/60">{ text }</p>
+}

@@ -3,8 +3,12 @@ module github.com/akbarbinaji/patrolhub
 go 1.26.1
 
 require (
+	github.com/a-h/templ v0.3.1070
+	github.com/alexedwards/scs/pgxstore v0.0.0-20251002162104-209de6e426de
+	github.com/alexedwards/scs/v2 v2.9.0
 	github.com/go-chi/chi/v5 v5.4.0
 	github.com/jackc/pgx/v5 v5.11.0
+	github.com/justinas/nosurf v1.2.0
 	github.com/pressly/goose/v3 v3.29.0
 )
 

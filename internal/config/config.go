@@ -2,6 +2,8 @@ package config
 
 import (
 	"errors"
+	"fmt"
+	"net/url"
 	"os"
 )
 
@@ -32,7 +34,19 @@ func Load() (Config, error) {
 	if c.BaseURL == "" {
 		return c, errors.New("BASE_URL is required")
 	}
+	if u, err := url.Parse(c.BaseURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return c, fmt.Errorf("BASE_URL must be an absolute http(s) URL, got %q", c.BaseURL)
+	}
 	return c, nil
+}
+
+// Origin returns scheme://host of BASE_URL, the origin browsers send in the Origin header.
+func (c Config) Origin() string {
+	u, err := url.Parse(c.BaseURL)
+	if err != nil {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host
 }
 
 func getenv(key, def string) string {

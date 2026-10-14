@@ -1,0 +1,57 @@
+package view
+
+templ base(title string) {
+	<!DOCTYPE html>
+	<html lang="id" data-theme="light">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title }</title>
+			<link rel="stylesheet" href="/static/css/app.css"/>
+			<script src="/static/js/htmx.min.js" defer></script>
+			<script src="/static/js/alpine.min.js" defer></script>
+		</head>
+		<body class="min-h-screen bg-base-200" hx-headers={ hxHeaders(ctx) }>
+			{ children... }
+		</body>
+	</html>
+}
+
+// PublicLayout is the mobile-first shell for the report page and the public recap.
+templ PublicLayout(title string) {
+	@base(title) {
+		<header class="bg-[#1E3A6E] text-white">
+			<div class="mx-auto flex w-full max-w-[480px] items-center px-4 py-3">
+				<a href="/recap" class="text-lg font-semibold">{ brand(ctx) }</a>
+			</div>
+		</header>
+		<main class="mx-auto w-full max-w-[480px] px-4 py-4">
+			{ children... }
+		</main>
+	}
+}
+
+// AdminLayout is the shell for every /admin page after login.
+templ AdminLayout(title string) {
+	@base(title) {
+		<header class="navbar bg-[#1E3A6E] text-white print:hidden">
+			<div class="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-4 px-4">
+				<span class="font-semibold">{ brand(ctx) }</span>
+				<nav class="flex flex-wrap items-center gap-x-4 text-sm" aria-label="Menu admin">
+					<a href="/admin/nights">Malam</a>
+					<a href="/admin/members">Anggota</a>
+					<a href="/admin/schedule">Jadwal</a>
+					<a href="/admin/fines">Denda</a>
+					<a href="/admin/settings">Pengaturan</a>
+				</nav>
+				<form method="post" action="/admin/logout" class="ml-auto">
+					<input type="hidden" name="csrf_token" value={ Page(ctx).CSRFToken }/>
+					<button type="submit" class="btn btn-ghost btn-sm">Keluar</button>
+				</form>
+			</div>
+		</header>
+		<main class="mx-auto w-full max-w-5xl px-4 py-4">
+			{ children... }
+		</main>
+	}
+}

@@ -13,7 +13,7 @@ Two docs drive the work (both Indonesian, both in the repo root):
 
 If they conflict, the PRD wins: note the difference and ask the product owner. When unsure about a business rule, stop and ask rather than guess.
 
-**Progress:** Steps 1 (setup), 2 (schema + sqlc queries + `service.WithTx`) and 3 (`internal/domain`, ~99% covered) are done and committed. Next is Step 4 (router, layouts, settings service). `serve` currently only serves `/healthz` and `/static/*`; `create-admin` and `seed-demo` are stubs that return "not implemented".
+**Progress:** Steps 1 (setup), 2 (schema + sqlc queries + `service.WithTx`), 3 (`internal/domain`, ~99% covered) and 4 (router, layouts, settings service) are done and committed. Next is Step 5 (admin login, settings page, QR). `serve` currently serves `/healthz`, `/static/*`, `/` (redirect) and a placeholder `/recap`; `create-admin` and `seed-demo` are stubs that return "not implemented".
 
 ## Working rules
 
@@ -64,3 +64,11 @@ Concepts that span several files:
 ## Schema notes
 
 `migrations/00001_init.sql` is copied verbatim from the plan and has more than the PRD's eight tables: `sessions` (scs/pgxstore), `setting` (7 seeded keys incl. `go_live_date`), plus `fine_rate` and `rain_requested_at` on `patrol_night`. `schedule_override` has a CHECK that `replacement_member_id` is set iff `action='SWAP'`. sqlc query files in `queries/` are one per table; `CloseNight` takes an explicit `closed_at` (the plan's signature omitted it) so the job stays deterministic and testable.
+
+## HTTP layer notes
+
+- `httpx.NewRouter(Deps)` middleware order: RequestID, RealIP (only if `TRUST_PROXY`), Logger, Recoverer, Compress(5), scs `LoadAndSave`, nosurf. nosurf runs before routing, so any unsafe request without a valid token gets 403 even on unknown paths.
+- nosurf 1.2 also requires proof of same origin (`Sec-Fetch-Site`, `Origin` or `Referer`). The origin of `BASE_URL` is whitelisted because behind a TLS-terminating proxy the app sees plain http; `config.Load` therefore requires `BASE_URL` to be an absolute http(s) URL.
+- Layouts get the CSRF token and RT name from the request context (`view.PageData`, set by the `pageData` middleware on page routes), not from template arguments. HTMX gets the token via `hx-headers` on `<body>`; plain forms must include a hidden `csrf_token` field.
+- `SettingsLoader` (interface in `httpx`) lets router tests use a fake instead of Postgres. `service.Settings.Validate` returns `ValidationErrors` keyed by setting key (= form field name). `TestSettingsServiceRoundTrip` runs only when `DATABASE_URL` is set and restores the original settings.
+- The admin nav links to `/admin/fines` (no month); that route must redirect to the current month when Step 9.4 adds it.
