@@ -13,7 +13,7 @@ Two docs drive the work (both Indonesian, both in the repo root):
 
 If they conflict, the PRD wins: note the difference and ask the product owner. When unsure about a business rule, stop and ask rather than guess.
 
-**Progress:** Steps 1–13 are done and committed (… hardening, Docker + deploy). Step 14 (acceptance checklist) is the final step.
+**Progress:** All 14 steps of the plan are implemented and committed. `internal/httpx/acceptance_test.go` walks the PRD acceptance table (F1–F5) end to end with the clock handed over in UTC.
 
 ## Working rules
 
@@ -34,9 +34,10 @@ Tools (`templ`, `sqlc`, `air`, `tailwindcss`) are installed into the git-ignored
 docker compose up -d     # dev Postgres (patrolhub/patrolhub on :5432)
 make generate            # templ generate + sqlc generate (sqlc skipped if no sqlc.yaml)
 make css                 # Tailwind build -> web/static/css/app.css
-make check               # generate, go vet ./..., go test ./...   (must pass before every commit)
+make check               # generate, css, go vet ./..., go test ./...   (must pass before every commit)
 make dev                 # air live reload (runs `serve`)
 make build               # generate + css + CGO_ENABLED=0 build -> bin/patrolhub
+make docker              # css, then docker build -t patrolhub:latest .
 
 go test ./internal/domain -run TestCurrentWindow   # single test
 go test ./internal/domain/... -cover
@@ -93,3 +94,7 @@ Concepts that span several files:
 - `deploy/backup.sh` is the cron script (pg_dump custom format + photo tarball, 30-day cleanup); the dump/restore round trip was verified against the dev database.
 - **Docker/deploy**: `Dockerfile` (multi-stage, distroless `:nonroot`, uid 65532, ~17 MB) builds from the **committed** `web/static/css/app.css` — the container cannot reliably download the Tailwind CLI — so run `make css` first or use `make docker`; `make check` also rebuilds the CSS so a stale committed file shows up as a git diff. The image's `ENTRYPOINT` already contains `serve`: run one-off commands with `docker compose exec app /patrolhub create-admin <user>` or `docker run --entrypoint /patrolhub …`. `deploy/` holds the production compose (db + app + Caddy), `Caddyfile`, `.env.example`, `backup.sh`, and a short README with the first-release steps. The photo folder must be owned by uid 65532.
 - With `TRUST_PROXY=true` the client IP comes from `realIP` (rightmost `X-Forwarded-For` entry only). chi's `RealIP` is deliberately not used: it trusts `True-Client-IP`/`X-Real-IP` first, which a client can forge through Caddy. The Caddyfile also strips those two headers.
+
+## Not verified (needs a real phone/browser or a server)
+
+No browser was available while building, so these were checked only indirectly (HTML/markup assertions, JS syntax check) and still need a manual pass: the camera/resize/geolocation upload in `photo.js` on a real phone; the layout at 360 px width; printing the QR page on A5; HTTPS from a phone through Caddy; the "Salin rekap" clipboard button; restoring a real production backup. The Docker image itself was built and exercised locally (size, non-root, volume permissions, restart persistence).
