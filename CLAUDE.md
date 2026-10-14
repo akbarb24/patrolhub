@@ -13,7 +13,7 @@ Two docs drive the work (both Indonesian, both in the repo root):
 
 If they conflict, the PRD wins: note the difference and ask the product owner. When unsure about a business rule, stop and ask rather than guess.
 
-**Progress:** Steps 1–8 are done and committed (… public report page, closer job). Next is Step 9 (admin night panel + fines). `/recap` and `/admin/nights` are still "Segera hadir" placeholders.
+**Progress:** Steps 1–9 are done and committed (… closer job, admin night panel + fines). Next is Step 10 (public monthly recap). `/recap` is still a "Segera hadir" placeholder.
 
 ## Working rules
 
@@ -83,3 +83,5 @@ Concepts that span several files:
 - Fragment endpoints are `Cache-Control: no-store`; the patrol group uses `limitByIP(60)` and per-route `maxBody` (64 KB forms, ~1 MB + overhead for photos).
 - `web/static/js/photo.js` (resize ≤1280px, JPEG q0.7 then 0.5 if >500 KB, optional geolocation, fetch upload) was only syntax-checked, never run in a real browser/phone.
 - **Closer** (`service/closing.go`, run by `job.Closer` from `serve`): `Tick(now)` is a no-op without `go_live_date`; it creates missing nights only for days that have a team (an unscheduled weekday has no patrol night — creating one would show as a bogus "no report"), then closes every night whose window ended, skipping nights before go-live. Per-night errors are logged and joined, not fatal. It re-syncs the team right before closing.
+- **Admin night actions** (`service/nights.go`): mark/confirm/reject rain and attendance correction all run via `adminAction` (locks the night, writes an `admin:<id>` audit entry with `night_id` in detail). Corrections are allowed only on **closed**, non-rained-out nights (on an open night the closer would overwrite them) and need a reason of ≥5 characters; fines are recalculated from the night's frozen `fine_rate` (falling back to the current rate if NULL). Rejecting a rain request on a closed night recalculates fines the same way. Admin photos are served at `/admin/photos/{id}` (`private, max-age=3600`).
+- Fines (`service/fines.go`): per member and calendar month, total = sum of `fine_amount` on closed nights, minus recorded `fine_payment`s; negative remaining means overpaid. `/admin/fines` redirects to the current month.

@@ -41,6 +41,8 @@ type Deps struct {
 	Members  *service.MemberService
 	Schedule *service.ScheduleService
 	Patrol   *service.PatrolService
+	Nights   *service.NightService
+	Fines    *service.FineService
 	Static   fs.FS            // root of the embedded static assets
 	Now      func() time.Time // injectable clock; defaults to time.Now
 }

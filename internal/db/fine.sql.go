@@ -20,6 +20,25 @@ func (q *Queries) DeletePayment(ctx context.Context, id int64) error {
 	return err
 }
 
+const getPayment = `-- name: GetPayment :one
+SELECT id, member_id, period, amount, paid_at, recorded_by, created_at FROM fine_payment WHERE id = $1
+`
+
+func (q *Queries) GetPayment(ctx context.Context, id int64) (FinePayment, error) {
+	row := q.db.QueryRow(ctx, getPayment, id)
+	var i FinePayment
+	err := row.Scan(
+		&i.ID,
+		&i.MemberID,
+		&i.Period,
+		&i.Amount,
+		&i.PaidAt,
+		&i.RecordedBy,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertPayment = `-- name: InsertPayment :one
 INSERT INTO fine_payment (member_id, period, amount, paid_at, recorded_by)
 VALUES ($1, $2, $3, $4, $5)

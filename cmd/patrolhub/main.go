@@ -108,6 +108,7 @@ func serve(cfg config.Config) error {
 	defer pool.Close()
 
 	settings := service.NewSettingsService(pool)
+	photos := storage.LocalStore{Dir: cfg.PhotoDir}
 	handler, err := httpx.NewRouter(httpx.Deps{
 		Config:   cfg,
 		Sessions: httpx.NewSessionManager(pool, cfg),
@@ -115,7 +116,9 @@ func serve(cfg config.Config) error {
 		Admins:   service.NewAdminService(pool),
 		Members:  service.NewMemberService(pool),
 		Schedule: service.NewScheduleService(pool),
-		Patrol:   service.NewPatrolService(pool, settings, storage.LocalStore{Dir: cfg.PhotoDir}),
+		Patrol:   service.NewPatrolService(pool, settings, photos),
+		Nights:   service.NewNightService(pool, settings, photos),
+		Fines:    service.NewFineService(pool),
 		Static:   static,
 	})
 	if err != nil {

@@ -8,3 +8,6 @@ RETURNING *;
 
 -- name: DeletePayment :exec
 DELETE FROM fine_payment WHERE id = $1;
+
+-- name: GetPayment :one
+SELECT * FROM fine_payment WHERE id = $1;

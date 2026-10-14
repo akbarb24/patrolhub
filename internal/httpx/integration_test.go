@@ -20,10 +20,13 @@ import (
 
 // app is the whole application over a throwaway database with a controllable clock.
 type app struct {
-	t    *testing.T
-	pool *pgxpool.Pool
-	now  time.Time
-	h    http.Handler
+	t      *testing.T
+	pool   *pgxpool.Pool
+	now    time.Time
+	h      http.Handler
+	photos storage.LocalStore
+
+	adminMade bool
 }
 
 func (a *app) clock() time.Time { return a.now }
@@ -31,7 +34,7 @@ func (a *app) clock() time.Time { return a.now }
 func newApp(t *testing.T, now time.Time) *app {
 	t.Helper()
 	pool := testdb.New(t)
-	a := &app{t: t, pool: pool, now: now}
+	a := &app{t: t, pool: pool, now: now, photos: storage.LocalStore{Dir: t.TempDir()}}
 	settings := service.NewSettingsService(pool)
 	deps := Deps{
 		Config:   config.Config{AppEnv: "development", BaseURL: "https://ronda.example.com"},
@@ -40,7 +43,9 @@ func newApp(t *testing.T, now time.Time) *app {
 		Admins:   service.NewAdminService(pool),
 		Members:  service.NewMemberService(pool),
 		Schedule: service.NewScheduleService(pool),
-		Patrol:   service.NewPatrolService(pool, settings, storage.LocalStore{Dir: t.TempDir()}),
+		Patrol:   service.NewPatrolService(pool, settings, a.photos),
+		Nights:   service.NewNightService(pool, settings, a.photos),
+		Fines:    service.NewFineService(pool),
 		Static:   fstest.MapFS{},
 		Now:      a.clock,
 	}
@@ -55,8 +60,11 @@ func newApp(t *testing.T, now time.Time) *app {
 // loggedIn returns a browser with an admin session.
 func (a *app) loggedIn() *browser {
 	a.t.Helper()
-	if _, err := service.NewAdminService(a.pool).Create(context.Background(), "admin", "correct-horse-battery"); err != nil {
-		a.t.Fatal(err)
+	if !a.adminMade {
+		if _, err := service.NewAdminService(a.pool).Create(context.Background(), "admin", "correct-horse-battery"); err != nil {
+			a.t.Fatal(err)
+		}
+		a.adminMade = true
 	}
 	b := newBrowser(a.t, a.h)
 	resp, _ := b.post("/admin/login", "/admin/login", url.Values{"username": {"admin"}, "password": {"correct-horse-battery"}})

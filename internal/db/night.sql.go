@@ -132,6 +132,41 @@ func (q *Queries) ListNightsBetween(ctx context.Context, arg ListNightsBetweenPa
 	return items, nil
 }
 
+const listNightsByStatus = `-- name: ListNightsByStatus :many
+SELECT id, patrol_date, status, situation_note, first_reported_at, rain_requested_at, closed_at, fine_rate, needs_review, created_at FROM patrol_night WHERE status = $1 ORDER BY patrol_date DESC
+`
+
+func (q *Queries) ListNightsByStatus(ctx context.Context, status string) ([]PatrolNight, error) {
+	rows, err := q.db.Query(ctx, listNightsByStatus, status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PatrolNight
+	for rows.Next() {
+		var i PatrolNight
+		if err := rows.Scan(
+			&i.ID,
+			&i.PatrolDate,
+			&i.Status,
+			&i.SituationNote,
+			&i.FirstReportedAt,
+			&i.RainRequestedAt,
+			&i.ClosedAt,
+			&i.FineRate,
+			&i.NeedsReview,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUnclosedNightsBefore = `-- name: ListUnclosedNightsBefore :many
 SELECT id, patrol_date, status, situation_note, first_reported_at, rain_requested_at, closed_at, fine_rate, needs_review, created_at FROM patrol_night
 WHERE closed_at IS NULL AND patrol_date < $1

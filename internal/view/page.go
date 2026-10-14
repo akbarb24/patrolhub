@@ -101,3 +101,57 @@ func ClockText(t time.Time) string { return t.In(config.Jakarta).Format("15.04")
 func clockDotted(c domain.Clock) string { return fmt.Sprintf("%02d.%02d", c.Hour, c.Min) }
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+// ShortStamp renders "7 Okt 2026 22.41" in Jakarta.
+func ShortStamp(t time.Time) string {
+	t = t.In(config.Jakarta)
+	return fmt.Sprintf("%d %s %d %s", t.Day(), domain.MonthNameID(t.Month())[:3], t.Year(), t.Format("15.04"))
+}
+
+func stampPtr(t *time.Time) string {
+	if t == nil {
+		return "–"
+	}
+	return ShortStamp(*t)
+}
+
+func attendanceLabel(s domain.AttendanceStatus) string {
+	switch s {
+	case domain.Present:
+		return "Hadir"
+	case domain.Absent:
+		return "Tidak hadir"
+	case domain.RainedOut:
+		return "Hujan"
+	}
+	return string(s)
+}
+
+func auditLabel(action string) string {
+	labels := map[string]string{
+		"toggle_attendance": "Ubah kehadiran", "update_situation": "Ubah situasi", "upload_photo": "Unggah foto",
+		"request_rain": "Ajukan hujan", "add_walk_in": "Tambah pengganti", "close_night": "Tutup malam",
+		"mark_rain": "Tandai hujan", "confirm_rain": "Konfirmasi hujan", "reject_rain": "Tolak hujan",
+		"correct_attendance": "Koreksi absen",
+	}
+	if l, ok := labels[action]; ok {
+		return l
+	}
+	return action
+}
+
+func mapsURL(lat, lng *float64) string {
+	if lat == nil || lng == nil {
+		return ""
+	}
+	return fmt.Sprintf("https://www.google.com/maps?q=%.6f,%.6f", *lat, *lng)
+}
+
+func rupiah(n int) string { return domain.FormatRupiah(n) }
+
+func rupiahNeg(n int) string {
+	if n < 0 {
+		return "Lebih bayar " + domain.FormatRupiah(-n)
+	}
+	return domain.FormatRupiah(n)
+}

@@ -39,3 +39,6 @@ ORDER BY patrol_date;
 SELECT * FROM patrol_night
 WHERE patrol_date BETWEEN sqlc.arg(from_date)::date AND sqlc.arg(to_date)::date
 ORDER BY patrol_date;
+
+-- name: ListNightsByStatus :many
+SELECT * FROM patrol_night WHERE status = $1 ORDER BY patrol_date DESC;

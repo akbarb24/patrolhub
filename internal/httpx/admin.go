@@ -38,15 +38,14 @@ func adminRoutes(d Deps) http.Handler {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/admin/nights", http.StatusFound)
 		})
-		r.Get("/nights", func(w http.ResponseWriter, r *http.Request) {
-			render(w, r, view.AdminNightsPlaceholder())
-		})
 		r.Get("/settings", h.settingsForm)
 		r.Post("/settings", h.saveSettings)
 		r.Get("/qr", h.qrPage)
 		r.Get("/qr.png", h.qrPNG)
 		h.memberRoutes(r)
 		h.scheduleRoutes(r)
+		h.nightRoutes(r)
+		h.fineRoutes(r)
 	})
 	return r
 }
