@@ -1,0 +1,10 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "make generate && go build -o ./tmp/patrolhub ./cmd/patrolhub"
+  entrypoint = ["./tmp/patrolhub", "serve"]
+  include_ext = ["go", "templ", "sql", "css"]
+  exclude_regex = ["_templ\\.go$", "_test\\.go$"]
+  exclude_dir = ["bin", "tmp", "data", "internal/db"]
+  delay = 500
