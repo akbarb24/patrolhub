@@ -14,6 +14,7 @@ templ FinesPage(fm service.FineMonth, label, prev, next, today string, form Form
 			<a class="btn btn-sm" href={ templ.SafeURL("/admin/fines/" + prev) } aria-label="Bulan sebelumnya">‹</a>
 			<span class="font-medium">{ label }</span>
 			<a class="btn btn-sm" href={ templ.SafeURL("/admin/fines/" + next) } aria-label="Bulan berikutnya">›</a>
+			<a class="btn btn-sm ml-auto" href={ templ.SafeURL(fmt.Sprintf("/admin/export/%04d/%02d.csv", fm.Year, int(fm.Month))) }>Ekspor CSV</a>
 		</div>
 		@flashBlock(flash)
 		if form.Errors["_"] != "" {

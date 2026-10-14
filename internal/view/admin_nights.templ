@@ -37,7 +37,8 @@ templ NightsPage(cur, label, prev, next string, onlyReview bool, pending, rows [
 			<a class="btn btn-sm" href={ templ.SafeURL(monthLink(prev, onlyReview)) } aria-label="Bulan sebelumnya">‹</a>
 			<span class="font-medium">{ label }</span>
 			<a class="btn btn-sm" href={ templ.SafeURL(monthLink(next, onlyReview)) } aria-label="Bulan berikutnya">›</a>
-			<a class={ "btn btn-sm ml-auto", templ.KV("btn-primary", onlyReview) } href={ templ.SafeURL(reviewToggle(cur, onlyReview)) }>Hanya yang perlu ditinjau</a>
+			<a class="btn btn-sm ml-auto" href={ templ.SafeURL("/admin/export/" + cur[:4] + "/" + cur[5:] + ".csv") }>Ekspor CSV</a>
+			<a class={ "btn btn-sm", templ.KV("btn-primary", onlyReview) } href={ templ.SafeURL(reviewToggle(cur, onlyReview)) }>Hanya yang perlu ditinjau</a>
 		</div>
 		<div class="overflow-x-auto rounded-box bg-base-100 shadow-sm">
 			<table class="table">

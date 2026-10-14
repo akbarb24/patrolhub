@@ -2,11 +2,13 @@ package httpx
 
 import (
 	"context"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -242,4 +244,48 @@ func (h adminHandlers) deletePayment(w http.ResponseWriter, r *http.Request) {
 	default:
 		h.flashRedirect(w, r, fmt.Sprintf("/admin/fines/%04d/%02d", month.Year(), int(month.Month())), "Pembayaran dihapus.")
 	}
+}
+
+// CSV export (F5.5)
+
+func (h adminHandlers) exportRoutes(r chi.Router) {
+	r.Get("/export/{yyyy}/{mm}.csv", h.exportCSV)
+}
+
+// csvSafe stops spreadsheets from running a cell as a formula: a leading = + - @ or
+// control character makes Excel and Sheets evaluate it, so such cells get a leading quote.
+func csvSafe(s string) string {
+	if s != "" && strings.ContainsRune("=+-@\t\r", rune(s[0])) {
+		return "'" + s
+	}
+	return s
+}
+
+func (h adminHandlers) exportCSV(w http.ResponseWriter, r *http.Request) {
+	month, ok := finePeriod(r)
+	if !ok {
+		notFoundPage(w)
+		return
+	}
+	rows, err := h.Recap.Export(r.Context(), month.Year(), month.Month(), h.today())
+	switch {
+	case errors.Is(err, service.ErrFutureMonth), errors.Is(err, service.ErrNotFound):
+		notFoundPage(w)
+		return
+	case err != nil:
+		serverError(w, "export", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="rekap-ronda-%04d-%02d.csv"`, month.Year(), int(month.Month())))
+	io.WriteString(w, "\xEF\xBB\xBF") // UTF-8 byte order mark, so Excel reads the accents correctly
+	cw := csv.NewWriter(w)
+	cw.Write([]string{"tanggal", "hari", "status_malam", "blok", "nama", "status_absen", "denda"})
+	for _, row := range rows {
+		cw.Write([]string{
+			row.Date.String(), row.Weekday, row.NightStatus, csvSafe(row.Block), csvSafe(row.Name), row.Status, strconv.Itoa(row.Fine),
+		})
+	}
+	cw.Flush()
 }

@@ -3,6 +3,7 @@ package httpx
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -24,6 +25,7 @@ func recapRoutes(d Deps) http.Handler {
 	r.Get("/", h.current)
 	r.Get("/{yyyy}/{mm}", h.summary)
 	r.Get("/{yyyy}/{mm}/situations", h.situations)
+	r.Get("/{yyyy}/{mm}/text", h.text)
 	return r
 }
 
@@ -48,7 +50,7 @@ func recapNav(year int, month time.Month, today domain.Date) view.RecapNav {
 	nav := view.RecapNav{
 		Title:   domain.MonthNameID(month) + " " + strconv.Itoa(year),
 		Prev:    href(cur.AddDate(0, -1, 0)),
-		Summary: href(cur), Situation: href(cur) + "/situations",
+		Summary: href(cur), Situation: href(cur) + "/situations", TextBase: href(cur) + "/text",
 	}
 	if next := cur.AddDate(0, 1, 0); next.Before(time.Date(today.Year, today.Month, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 1, 0)) {
 		nav.Next = href(next)
@@ -87,5 +89,27 @@ func (h recapHandlers) summary(w http.ResponseWriter, r *http.Request) {
 func (h recapHandlers) situations(w http.ResponseWriter, r *http.Request) {
 	if rec, nav, ok := h.load(w, r); ok {
 		render(w, r, view.RecapSituationsPage(rec, nav, r.URL.Query().Get("special") == "1"))
+	}
+}
+
+// text serves the WhatsApp recap as plain text for the "Salin rekap" button.
+func (h recapHandlers) text(w http.ResponseWriter, r *http.Request) {
+	year, month, ok := recapMonth(r)
+	if !ok {
+		notFoundPage(w)
+		return
+	}
+	txt, err := h.Recap.Text(r.Context(), year, month, r.URL.Query().Get("range"), domain.DateOf(h.Now()), h.Config.BaseURL)
+	switch {
+	case errors.Is(err, service.ErrBadRange):
+		http.Error(w, "Rentang tidak dikenal.", http.StatusBadRequest)
+	case errors.Is(err, service.ErrFutureMonth), errors.Is(err, service.ErrNotFound):
+		notFoundPage(w)
+	case err != nil:
+		serverError(w, "recap text", err)
+	default:
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Cache-Control", "private, max-age=300")
+		io.WriteString(w, txt)
 	}
 }

@@ -13,7 +13,7 @@ Two docs drive the work (both Indonesian, both in the repo root):
 
 If they conflict, the PRD wins: note the difference and ask the product owner. When unsure about a business rule, stop and ask rather than guess.
 
-**Progress:** Steps 1–10 are done and committed (… admin night panel + fines, public recap). Next is Step 11 (Should features: WhatsApp text, CSV export).
+**Progress:** Steps 1–11 are done and committed (… public recap, WhatsApp text, CSV export). Next is Step 12 (non-functional: photo retention job, security headers/limits, backup script).
 
 ## Working rules
 
@@ -86,3 +86,5 @@ Concepts that span several files:
 - **Admin night actions** (`service/nights.go`): mark/confirm/reject rain and attendance correction all run via `adminAction` (locks the night, writes an `admin:<id>` audit entry with `night_id` in detail). Corrections are allowed only on **closed**, non-rained-out nights (on an open night the closer would overwrite them) and need a reason of ≥5 characters; fines are recalculated from the night's frozen `fine_rate` (falling back to the current rate if NULL). Rejecting a rain request on a closed night recalculates fines the same way. Admin photos are served at `/admin/photos/{id}` (`private, max-age=3600`).
 - Fines (`service/fines.go`): per member and calendar month, total = sum of `fine_amount` on closed nights, minus recorded `fine_payment`s; negative remaining means overpaid. `/admin/fines` redirects to the current month.
 - **Public recap** (`service/recap.go`, `httpx/recap.go`, `view/recap.templ`): `RecapService.NightRows` feeds `domain.BuildMonthRecap` with closed nights that have at least one attendance row (a night without a team is left out). Months after the current one (and years outside 2000–2100) are 404. Responses are `Cache-Control: private, max-age=300` rather than the plan's `public`, because every page carries a CSRF cookie. Both tabs transfer ~84 KB gzipped (HTML + CSS + htmx + Alpine); `TestPageWeightStaysUnder200KB` guards the 200 KB budget. The status markers use `aria-label`s like "7 Oktober: hadir". `aria-current="page"` must be written as a conditional attribute (`if … { aria-current="page" }`), not `aria-current?=`, which renders a bare attribute.
+- **WhatsApp text** (`domain/recap_text.go`, `GET /recap/{yyyy}/{mm}/text?range=month|week`): pure builders; "week" = the seven calendar days ending with the latest closed night, clipped to the month. The "Salin rekap" menu is a native `<details>` plus `web/static/js/recap.js` (no Alpine: the CDN build starts before later deferred scripts, so `Alpine.data` registered there would be too late).
+- **CSV export** (`GET /admin/export/{yyyy}/{mm}.csv`, admin only): UTF-8 BOM, columns `tanggal,hari,status_malam,blok,nama,status_absen,denda`, Indonesian labels, closed nights only. `csvSafe` prefixes `'` to cells starting with `= + - @` or a control character so spreadsheets never evaluate them.

@@ -46,21 +46,7 @@ func brand(ctx context.Context) string {
 	return "PatrolHub"
 }
 
-func nightStatusLabel(s domain.NightStatus) string {
-	switch s {
-	case domain.NightOpen:
-		return "Terbuka"
-	case domain.NightReported:
-		return "Dilaporkan"
-	case domain.NightNoReport:
-		return "Tanpa laporan"
-	case domain.NightRainRequested:
-		return "Menunggu konfirmasi hujan"
-	case domain.NightRainedOut:
-		return "Hujan"
-	}
-	return string(s)
-}
+func nightStatusLabel(s domain.NightStatus) string { return domain.NightStatusLabel(s) }
 
 func nightStatusClass(s domain.NightStatus) string {
 	switch s {
@@ -116,17 +102,7 @@ func stampPtr(t *time.Time) string {
 	return ShortStamp(*t)
 }
 
-func attendanceLabel(s domain.AttendanceStatus) string {
-	switch s {
-	case domain.Present:
-		return "Hadir"
-	case domain.Absent:
-		return "Tidak hadir"
-	case domain.RainedOut:
-		return "Hujan"
-	}
-	return string(s)
-}
+func attendanceLabel(s domain.AttendanceStatus) string { return domain.AttendanceLabel(s) }
 
 func auditLabel(action string) string {
 	labels := map[string]string{

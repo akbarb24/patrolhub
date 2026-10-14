@@ -46,6 +46,7 @@ func adminRoutes(d Deps) http.Handler {
 		h.scheduleRoutes(r)
 		h.nightRoutes(r)
 		h.fineRoutes(r)
+		h.exportRoutes(r)
 	})
 	return r
 }

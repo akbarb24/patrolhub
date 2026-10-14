@@ -48,7 +48,8 @@ func TestRecapSummary(t *testing.T) {
 	}
 	// The current month cannot be navigated past.
 	contains(t, body, `aria-disabled="true"`)
-	notContains(t, body, `href="/recap/2026/11"`, "Salin rekap")
+	notContains(t, body, `href="/recap/2026/11"`)
+	contains(t, body, "Salin rekap")
 
 	_, body = b.do("GET", "/recap/2026/09", nil)
 	contains(t, body, "Belum ada data untuk bulan ini.", `href="/recap/2026/10"`, `href="/recap/2026/08"`)
