@@ -16,15 +16,27 @@ import (
 	"github.com/akbarbinaji/patrolhub/internal/view"
 )
 
-// SettingsLoader is the part of the settings service the HTTP layer needs.
+// SettingsLoader is what the page middleware needs from the settings service.
 type SettingsLoader interface {
 	Load(ctx context.Context) (service.Settings, error)
+}
+
+// SettingsStore is the settings service as the admin handlers use it.
+type SettingsStore interface {
+	SettingsLoader
+	Save(ctx context.Context, s service.Settings) error
+}
+
+// Authenticator checks admin credentials; it returns service.ErrInvalidCredentials on mismatch.
+type Authenticator interface {
+	Authenticate(ctx context.Context, username, password string) (int64, error)
 }
 
 type Deps struct {
 	Config   config.Config
 	Sessions *scs.SessionManager
-	Settings SettingsLoader
+	Settings SettingsStore
+	Admins   Authenticator
 	Static   fs.FS // root of the embedded static assets
 }
 
@@ -62,6 +74,8 @@ func NewRouter(d Deps) (http.Handler, error) {
 		r.Get("/recap", func(w http.ResponseWriter, r *http.Request) {
 			render(w, r, view.RecapPlaceholder())
 		})
+
+		r.Mount("/admin", adminRoutes(d))
 	})
 
 	return r, nil

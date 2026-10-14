@@ -1,0 +1,20 @@
+package view
+
+templ LoginPage(username, errMsg string) {
+	@PublicLayout("Masuk Admin") {
+		<h1 class="mb-4 text-xl font-semibold">Masuk Admin</h1>
+		if errMsg != "" {
+			<div class="mb-4">
+				@FlashMessage("error", errMsg)
+			</div>
+		}
+		<form method="post" action="/admin/login" class="card bg-base-100 p-4 shadow-sm">
+			<input type="hidden" name="csrf_token" value={ Page(ctx).CSRFToken }/>
+			<label class="mb-1 block text-sm font-medium" for="username">Username</label>
+			<input id="username" name="username" type="text" value={ username } autocomplete="username" autocapitalize="none" required class="input input-bordered mb-4 w-full"/>
+			<label class="mb-1 block text-sm font-medium" for="password">Password</label>
+			<input id="password" name="password" type="password" autocomplete="current-password" required class="input input-bordered mb-4 w-full"/>
+			<button type="submit" class="btn btn-primary w-full">Masuk</button>
+		</form>
+	}
+}

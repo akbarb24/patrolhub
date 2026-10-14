@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 )
 
 type Config struct {
@@ -38,6 +39,11 @@ func Load() (Config, error) {
 		return c, fmt.Errorf("BASE_URL must be an absolute http(s) URL, got %q", c.BaseURL)
 	}
 	return c, nil
+}
+
+// TonightURL is the address printed on the QR code.
+func (c Config) TonightURL() string {
+	return strings.TrimRight(c.BaseURL, "/") + "/patrol/tonight"
 }
 
 // Origin returns scheme://host of BASE_URL, the origin browsers send in the Origin header.

@@ -1,0 +1,23 @@
+package view
+
+// QRPage is a printable A5 sheet. windowText is e.g. "22.00–06.00".
+templ QRPage(rtName, windowText, url string) {
+	@AdminLayout("Cetak QR") {
+		<style>
+			@page { size: A5; margin: 10mm; }
+			@media print {
+				body { background: #fff; }
+				main { max-width: none; padding: 0; }
+			}
+		</style>
+		<div class="mb-4 print:hidden">
+			<button type="button" class="btn btn-primary" onclick="window.print()">Cetak</button>
+		</div>
+		<section class="mx-auto flex max-w-md flex-col items-center gap-4 bg-white p-6 text-center">
+			<h1 class="text-2xl font-bold">Laporan Ronda { rtName }</h1>
+			<img src="/admin/qr.png" alt="Kode QR halaman laporan ronda" width="320" height="320" class="h-80 w-80"/>
+			<p class="text-lg">Pindai pukul { windowText } untuk mengisi laporan ronda</p>
+			<p class="break-all text-sm text-base-content/70">{ url }</p>
+		</section>
+	}
+}

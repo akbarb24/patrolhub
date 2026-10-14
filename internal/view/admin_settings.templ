@@ -1,0 +1,46 @@
+package view
+
+templ field(label, name, typ, value, errMsg, hint string) {
+	<div class="mb-4">
+		<label class="mb-1 block text-sm font-medium" for={ name }>{ label }</label>
+		<input
+			id={ name }
+			name={ name }
+			type={ typ }
+			value={ value }
+			class={ "input input-bordered w-full", templ.KV("input-error", errMsg != "") }
+			if errMsg != "" {
+				aria-invalid="true"
+				aria-describedby={ name + "-error" }
+			}
+		/>
+		if hint != "" {
+			<p class="mt-1 text-xs text-base-content/60">{ hint }</p>
+		}
+		if errMsg != "" {
+			<p id={ name + "-error" } class="mt-1 text-sm text-error">{ errMsg }</p>
+		}
+	</div>
+}
+
+templ SettingsPage(form SettingsForm, flash string) {
+	@AdminLayout("Pengaturan") {
+		<h1 class="mb-4 text-xl font-semibold">Pengaturan</h1>
+		if flash != "" {
+			<div class="mb-4">
+				@FlashMessage("success", flash)
+			</div>
+		}
+		<form method="post" action="/admin/settings" class="card max-w-xl bg-base-100 p-4 shadow-sm" novalidate>
+			<input type="hidden" name="csrf_token" value={ Page(ctx).CSRFToken }/>
+			@field("Nama RT", "rt_name", "text", form.Values["rt_name"], form.Errors["rt_name"], "")
+			@field("Jam buka laporan", "window_open", "time", form.Values["window_open"], form.Errors["window_open"], "Mis. 22:00. Harus lebih besar dari jam tutup (jendela melewati tengah malam).")
+			@field("Jam tutup laporan", "window_close", "time", form.Values["window_close"], form.Errors["window_close"], "Mis. 06:00, keesokan harinya.")
+			@field("Denda per ketidakhadiran (Rp)", "fine_per_absence", "number", form.Values["fine_per_absence"], form.Errors["fine_per_absence"], "Perubahan tarif tidak mengubah malam yang sudah ditutup.")
+			@field("Minimal foto per malam", "min_photos", "number", form.Values["min_photos"], form.Errors["min_photos"], "")
+			@field("Maksimal foto per malam", "max_photos", "number", form.Values["max_photos"], form.Errors["max_photos"], "Paling banyak 20.")
+			@field("Tanggal mulai aplikasi", "go_live_date", "date", form.Values["go_live_date"], form.Errors["go_live_date"], "Penutupan otomatis tidak memproses malam sebelum tanggal ini. Kosongkan sampai siap dipakai.")
+			<button type="submit" class="btn btn-primary">Simpan</button>
+		</form>
+	}
+}

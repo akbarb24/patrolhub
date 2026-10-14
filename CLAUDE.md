@@ -13,7 +13,7 @@ Two docs drive the work (both Indonesian, both in the repo root):
 
 If they conflict, the PRD wins: note the difference and ask the product owner. When unsure about a business rule, stop and ask rather than guess.
 
-**Progress:** Steps 1 (setup), 2 (schema + sqlc queries + `service.WithTx`), 3 (`internal/domain`, ~99% covered) and 4 (router, layouts, settings service) are done and committed. Next is Step 5 (admin login, settings page, QR). `serve` currently serves `/healthz`, `/static/*`, `/` (redirect) and a placeholder `/recap`; `create-admin` and `seed-demo` are stubs that return "not implemented".
+**Progress:** Steps 1 (setup), 2 (schema + sqlc queries + `service.WithTx`), 3 (`internal/domain`, ~99% covered), 4 (router, layouts, settings service) and 5 (admin login, settings page, QR) are done and committed. Next is Step 6 (members and schedule). `/recap` and `/admin/nights` are still "Segera hadir" placeholders; `seed-demo` is a stub.
 
 ## Working rules
 
@@ -72,3 +72,7 @@ Concepts that span several files:
 - Layouts get the CSRF token and RT name from the request context (`view.PageData`, set by the `pageData` middleware on page routes), not from template arguments. HTMX gets the token via `hx-headers` on `<body>`; plain forms must include a hidden `csrf_token` field.
 - `SettingsLoader` (interface in `httpx`) lets router tests use a fake instead of Postgres. `service.Settings.Validate` returns `ValidationErrors` keyed by setting key (= form field name). `TestSettingsServiceRoundTrip` runs only when `DATABASE_URL` is set and restores the original settings.
 - The admin nav links to `/admin/fines` (no month); that route must redirect to the current month when Step 9.4 adds it.
+- Admin routes live in `httpx/admin.go` (`adminRoutes`, mounted at `/admin` inside the page group). Login/logout are outside `requireAdmin`; everything else is inside it, which also sets `Cache-Control: private, no-store`. Add new admin pages to that group.
+- Rate limiting uses `limitByIP(n)` (keys on `RemoteAddr`, not `X-Forwarded-For`, so it cannot be forged; with `TRUST_PROXY=true` the RealIP middleware has already rewritten `RemoteAddr`). Reuse it for `/patrol/tonight` in Step 7 (60/min). Do not use `httprate.LimitByIP`.
+- Flash messages: `sessions.Put(ctx, sessionFlash, msg)` then redirect (POST-redirect-GET); the GET handler reads it with `PopString`. Invalid forms re-render with 422 and echo submitted values via `view.SettingsForm`-style `Values`/`Errors` maps keyed by field name.
+- `create-admin` reads the password twice without echo on a terminal, or two lines when stdin is piped (`printf 'pw\npw\n' | patrolhub create-admin <user>`; also works with `docker compose exec -T`). Passwords need ≥10 characters; `AdminService.Authenticate` does a dummy bcrypt compare for unknown users to equalize timing.

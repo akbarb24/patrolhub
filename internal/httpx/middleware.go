@@ -2,10 +2,14 @@ package httpx
 
 import (
 	"log/slog"
+	"net"
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
+	"github.com/alexedwards/scs/v2"
+	"github.com/go-chi/httprate"
 	"github.com/justinas/nosurf"
 
 	"github.com/akbarbinaji/patrolhub/internal/view"
@@ -67,4 +71,35 @@ func cacheStatic(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// limitByIP allows n requests per minute per client IP. It keys on RemoteAddr only:
+// httprate's own IP helpers trust X-Forwarded-For, which anyone could forge when the
+// app is not behind a proxy. With TRUST_PROXY=true, middleware.RealIP has already
+// rewritten RemoteAddr from the proxy's header.
+func limitByIP(n int) func(http.Handler) http.Handler {
+	return httprate.Limit(n, time.Minute, httprate.WithKeyFuncs(func(r *http.Request) (string, error) {
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			return r.RemoteAddr, nil
+		}
+		return host, nil
+	}))
+}
+
+const sessionAdminID = "admin_id"
+
+// requireAdmin redirects to the login page unless the session holds an admin id.
+// Admin pages are never cached.
+func requireAdmin(sessions *scs.SessionManager) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if sessions.GetInt64(r.Context(), sessionAdminID) == 0 {
+				http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
+				return
+			}
+			w.Header().Set("Cache-Control", "private, no-store")
+			next.ServeHTTP(w, r)
+		})
+	}
 }

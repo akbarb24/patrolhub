@@ -42,7 +42,7 @@ func main() {
 	case "migrate":
 		err = migrate(cfg)
 	case "create-admin":
-		err = errors.New("create-admin: not implemented yet (step 5.1)")
+		err = createAdmin(cfg, os.Args[2:])
 	case "seed-demo":
 		if cfg.AppEnv != "development" {
 			err = errors.New("seed-demo only runs when APP_ENV=development")
@@ -109,6 +109,7 @@ func serve(cfg config.Config) error {
 		Config:   cfg,
 		Sessions: httpx.NewSessionManager(pool, cfg),
 		Settings: service.NewSettingsService(pool),
+		Admins:   service.NewAdminService(pool),
 		Static:   static,
 	})
 	if err != nil {

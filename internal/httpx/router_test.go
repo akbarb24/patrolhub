@@ -12,20 +12,14 @@ import (
 	"github.com/alexedwards/scs/v2"
 
 	"github.com/akbarbinaji/patrolhub/internal/config"
-	"github.com/akbarbinaji/patrolhub/internal/service"
 )
 
-type fakeSettings struct{ err error }
-
-func (f fakeSettings) Load(context.Context) (service.Settings, error) {
-	return service.Settings{RTName: "RT 02"}, f.err
-}
-
-func newTestRouter(s SettingsLoader) http.Handler {
+func newTestRouter(s SettingsStore) http.Handler {
 	h, err := NewRouter(Deps{
 		Config:   config.Config{AppEnv: "development", BaseURL: "https://ronda.example.com"},
 		Sessions: scs.New(),
 		Settings: s,
+		Admins:   fakeAdmins{},
 		Static:   fstest.MapFS{"js/htmx.min.js": {Data: []byte("//js")}},
 	})
 	if err != nil {
@@ -48,21 +42,21 @@ func do(h http.Handler, method, path string, hdr map[string]string, cookies []*h
 }
 
 func TestHealthz(t *testing.T) {
-	rec := do(newTestRouter(fakeSettings{}), "GET", "/healthz", nil, nil)
+	rec := do(newTestRouter(&fakeSettings{}), "GET", "/healthz", nil, nil)
 	if rec.Code != 200 || rec.Body.String() != "ok" {
 		t.Fatalf("%d %q", rec.Code, rec.Body.String())
 	}
 }
 
 func TestRootRedirectsToRecap(t *testing.T) {
-	rec := do(newTestRouter(fakeSettings{}), "GET", "/", nil, nil)
+	rec := do(newTestRouter(&fakeSettings{}), "GET", "/", nil, nil)
 	if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/recap" {
 		t.Fatalf("%d %q", rec.Code, rec.Header().Get("Location"))
 	}
 }
 
 func TestRecapRendersPublicLayout(t *testing.T) {
-	rec := do(newTestRouter(fakeSettings{}), "GET", "/recap", nil, nil)
+	rec := do(newTestRouter(&fakeSettings{}), "GET", "/recap", nil, nil)
 	body := rec.Body.String()
 	for _, want := range []string{`lang="id"`, "PatrolHub · RT 02", "Segera hadir", "/static/css/app.css", "X-CSRF-Token"} {
 		if rec.Code != 200 || !strings.Contains(body, want) {
@@ -72,14 +66,14 @@ func TestRecapRendersPublicLayout(t *testing.T) {
 }
 
 func TestPageSurvivesSettingsFailure(t *testing.T) {
-	rec := do(newTestRouter(fakeSettings{err: context.DeadlineExceeded}), "GET", "/recap", nil, nil)
+	rec := do(newTestRouter(&fakeSettings{loadErr: context.DeadlineExceeded}), "GET", "/recap", nil, nil)
 	if rec.Code != 200 || strings.Contains(rec.Body.String(), "RT 02") || !strings.Contains(rec.Body.String(), "PatrolHub") {
 		t.Fatalf("%d", rec.Code)
 	}
 }
 
 func TestPostWithoutCSRFTokenIsForbidden(t *testing.T) {
-	rec := do(newTestRouter(fakeSettings{}), "POST", "/recap", nil, nil)
+	rec := do(newTestRouter(&fakeSettings{}), "POST", "/recap", nil, nil)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("got %d", rec.Code)
 	}
@@ -96,7 +90,7 @@ func csrfToken(t *testing.T, h http.Handler) (string, []*http.Cookie) {
 }
 
 func TestPostWithCSRFTokenPassesCSRFCheck(t *testing.T) {
-	h := newTestRouter(fakeSettings{})
+	h := newTestRouter(&fakeSettings{})
 	tok, cookies := csrfToken(t, h)
 	// 405 means CSRF passed and only the POST route is missing.
 	tests := []struct {
@@ -123,7 +117,7 @@ func TestPostWithCSRFTokenPassesCSRFCheck(t *testing.T) {
 }
 
 func TestPostWithWrongTokenIsForbidden(t *testing.T) {
-	h := newTestRouter(fakeSettings{})
+	h := newTestRouter(&fakeSettings{})
 	_, cookies := csrfToken(t, h)
 	hdr := map[string]string{"X-CSRF-Token": "bogus", "Sec-Fetch-Site": "same-origin"}
 	if got := do(h, "POST", "/recap", hdr, cookies).Code; got != http.StatusForbidden {
@@ -132,7 +126,7 @@ func TestPostWithWrongTokenIsForbidden(t *testing.T) {
 }
 
 func TestStaticCaching(t *testing.T) {
-	rec := do(newTestRouter(fakeSettings{}), "GET", "/static/js/htmx.min.js", nil, nil)
+	rec := do(newTestRouter(&fakeSettings{}), "GET", "/static/js/htmx.min.js", nil, nil)
 	if rec.Code != 200 || rec.Header().Get("Cache-Control") != "public, max-age=3600" {
 		t.Fatalf("%d %q", rec.Code, rec.Header().Get("Cache-Control"))
 	}
