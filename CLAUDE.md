@@ -13,7 +13,7 @@ Two docs drive the work (both Indonesian, both in the repo root):
 
 If they conflict, the PRD wins: note the difference and ask the product owner. When unsure about a business rule, stop and ask rather than guess.
 
-**Progress:** Steps 1–7 are done and committed (… members + schedule + `seed-demo`, public report page `/patrol/tonight`). Next is Step 8 (closer job). `/recap` and `/admin/nights` are still "Segera hadir" placeholders.
+**Progress:** Steps 1–8 are done and committed (… public report page, closer job). Next is Step 9 (admin night panel + fines). `/recap` and `/admin/nights` are still "Segera hadir" placeholders.
 
 ## Working rules
 
@@ -82,3 +82,4 @@ Concepts that span several files:
 - **Report page** (`httpx/patrol.go`, `service/patrol.go`): every reporter write goes through `PatrolService.write`, which checks the window, locks the night row (`FOR UPDATE`), syncs the team, runs the action, sets `first_reported_at`, and audits (`ANONYMOUS`, IP, UA, `night_id` in detail) in one transaction. Errors map to short Indonesian plain-text bodies that `web/static/js/patrol.js` shows as a toast; for window/night-closed the handler sets `HX-Redirect: /patrol/tonight` with 409 so htmx reloads into the closed state. Photo uploads are sniffed (`http.DetectContentType`), ≤1 MB, stored via `storage.PhotoStore` and the file is deleted again if the transaction fails.
 - Fragment endpoints are `Cache-Control: no-store`; the patrol group uses `limitByIP(60)` and per-route `maxBody` (64 KB forms, ~1 MB + overhead for photos).
 - `web/static/js/photo.js` (resize ≤1280px, JPEG q0.7 then 0.5 if >500 KB, optional geolocation, fetch upload) was only syntax-checked, never run in a real browser/phone.
+- **Closer** (`service/closing.go`, run by `job.Closer` from `serve`): `Tick(now)` is a no-op without `go_live_date`; it creates missing nights only for days that have a team (an unscheduled weekday has no patrol night — creating one would show as a bogus "no report"), then closes every night whose window ended, skipping nights before go-live. Per-night errors are logged and joined, not fatal. It re-syncs the team right before closing.

@@ -19,6 +19,7 @@ import (
 
 	"github.com/akbarbinaji/patrolhub/internal/config"
 	"github.com/akbarbinaji/patrolhub/internal/httpx"
+	"github.com/akbarbinaji/patrolhub/internal/job"
 	"github.com/akbarbinaji/patrolhub/internal/service"
 	"github.com/akbarbinaji/patrolhub/internal/storage"
 	"github.com/akbarbinaji/patrolhub/migrations"
@@ -120,6 +121,9 @@ func serve(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
+	closer := &job.Closer{Service: service.NewClosingService(pool, settings)}
+	go closer.Run(ctx)
+
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 
 	go func() {
