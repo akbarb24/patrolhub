@@ -162,3 +162,20 @@ func clientIP(r *http.Request) string {
 	}
 	return r.RemoteAddr
 }
+
+// realIP replaces RemoteAddr with the client address a trusted reverse proxy reports.
+// Only the rightmost X-Forwarded-For entry is used: it is the one the nearest proxy
+// appended, so entries a client put in front of it are ignored. True-Client-IP and
+// X-Real-IP (which chi's RealIP trusts first) are ignored entirely, because proxies
+// such as Caddy pass them through unchanged.
+func realIP(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			parts := strings.Split(xff, ",")
+			if ip := strings.TrimSpace(parts[len(parts)-1]); net.ParseIP(ip) != nil {
+				r.RemoteAddr = ip
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}

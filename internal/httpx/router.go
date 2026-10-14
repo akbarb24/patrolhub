@@ -60,7 +60,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 
 	r.Use(middleware.RequestID)
 	if d.Config.TrustProxy {
-		r.Use(middleware.RealIP)
+		r.Use(realIP)
 	}
 	r.Use(
 		requestLogger,

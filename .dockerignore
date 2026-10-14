@@ -1,0 +1,13 @@
+.git
+.gitignore
+.env
+.env.*
+bin/
+tmp/
+data/
+deploy/
+docs/
+*.md
+docker-compose.yml
+Dockerfile
+**/*_templ.go

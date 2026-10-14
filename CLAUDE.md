@@ -13,7 +13,7 @@ Two docs drive the work (both Indonesian, both in the repo root):
 
 If they conflict, the PRD wins: note the difference and ask the product owner. When unsure about a business rule, stop and ask rather than guess.
 
-**Progress:** Steps 1–12 are done and committed (… WhatsApp text, CSV export, retention job, security hardening, backup script). Next is Step 13 (Docker + deploy), then Step 14 (acceptance checklist).
+**Progress:** Steps 1–13 are done and committed (… hardening, Docker + deploy). Step 14 (acceptance checklist) is the final step.
 
 ## Working rules
 
@@ -91,3 +91,5 @@ Concepts that span several files:
 - **Hardening** (`httpx/middleware.go`): global middleware order is RequestID, RealIP (only with `TRUST_PROXY`), `requestLogger` (slog; logs path but never query/headers/cookies/body), Recoverer, `securityHeaders` (nosniff, `Referrer-Policy: same-origin`, `X-Frame-Options: DENY`), Compress, `limitBodies` (64 KB forms, ~1 MB + overhead for `/patrol/tonight/photos`), sessions, CSRF. `limitBodies` must stay *before* CSRF because nosurf parses the form to find the token; an oversized form therefore ends as a rejected request (403), not a 413. `TestTemplatesNeverUseRawOutput` forbids `templ.Raw`.
 - **Retention** (`service/retention.go`, `job/retention.go`): daily, deletes photos with `created_at` older than 183 days — file first, then row; a missing file still lets the row go, any other file error keeps the row for the next run.
 - `deploy/backup.sh` is the cron script (pg_dump custom format + photo tarball, 30-day cleanup); the dump/restore round trip was verified against the dev database.
+- **Docker/deploy**: `Dockerfile` (multi-stage, distroless `:nonroot`, uid 65532, ~17 MB) builds from the **committed** `web/static/css/app.css` — the container cannot reliably download the Tailwind CLI — so run `make css` first or use `make docker`; `make check` also rebuilds the CSS so a stale committed file shows up as a git diff. The image's `ENTRYPOINT` already contains `serve`: run one-off commands with `docker compose exec app /patrolhub create-admin <user>` or `docker run --entrypoint /patrolhub …`. `deploy/` holds the production compose (db + app + Caddy), `Caddyfile`, `.env.example`, `backup.sh`, and a short README with the first-release steps. The photo folder must be owned by uid 65532.
+- With `TRUST_PROXY=true` the client IP comes from `realIP` (rightmost `X-Forwarded-For` entry only). chi's `RealIP` is deliberately not used: it trusts `True-Client-IP`/`X-Real-IP` first, which a client can forge through Caddy. The Caddyfile also strips those two headers.

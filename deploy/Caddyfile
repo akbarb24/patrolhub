@@ -1,0 +1,10 @@
+{$DOMAIN} {
+	encode zstd gzip
+
+	reverse_proxy app:8080 {
+		# Caddy sets X-Forwarded-For itself; drop headers it would pass through unchanged
+		# so a visitor cannot pose as another address.
+		header_up -True-Client-IP
+		header_up -X-Real-IP
+	}
+}
