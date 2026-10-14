@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -31,24 +30,17 @@ func patrolRoutes(d Deps) http.Handler {
 	r.Use(limitByIP(60), noStore)
 
 	r.Get("/", h.page)
-	r.Group(func(r chi.Router) {
-		r.Use(maxBody(formBodyLimit))
-		r.Post("/attendance/{memberID}", h.toggle)
-		r.Post("/situation", h.situation)
-		r.Post("/rain", h.rain)
-		r.Post("/walk-in", h.walkIn)
-	})
-	r.With(maxBody(photoBodyLimit)).Post("/photos", h.addPhoto)
+	r.Post("/attendance/{memberID}", h.toggle)
+	r.Post("/situation", h.situation)
+	r.Post("/rain", h.rain)
+	r.Post("/walk-in", h.walkIn)
+	r.Post("/photos", h.addPhoto)
 	r.Get("/photos/{id}/thumb", h.thumb)
 	return r
 }
 
 func reportContext(r *http.Request) service.ReportContext {
-	ip := r.RemoteAddr
-	if host, _, err := net.SplitHostPort(ip); err == nil {
-		ip = host
-	}
-	return service.ReportContext{IP: ip, UserAgent: r.UserAgent()}
+	return service.ReportContext{IP: clientIP(r), UserAgent: r.UserAgent()}
 }
 
 // fail maps service errors to a status and a short Indonesian message the page shows as a toast.

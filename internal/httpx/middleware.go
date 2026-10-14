@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/alexedwards/scs/v2"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
 	"github.com/justinas/nosurf"
 
@@ -79,11 +80,7 @@ func cacheStatic(next http.Handler) http.Handler {
 // rewritten RemoteAddr from the proxy's header.
 func limitByIP(n int) func(http.Handler) http.Handler {
 	return httprate.Limit(n, time.Minute, httprate.WithKeyFuncs(func(r *http.Request) (string, error) {
-		host, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			return r.RemoteAddr, nil
-		}
-		return host, nil
+		return clientIP(r), nil
 	}))
 }
 
@@ -112,12 +109,56 @@ func noStore(next http.Handler) http.Handler {
 	})
 }
 
-// maxBody caps the request body; reading past it fails with *http.MaxBytesError.
-func maxBody(n int64) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			r.Body = http.MaxBytesReader(w, r.Body, n)
-			next.ServeHTTP(w, r)
-		})
+const photoUploadPath = "/patrol/tonight/photos"
+
+// limitBodies caps every request body: 64 KB for forms, a little over 1 MB for the
+// photo upload. It must run before the CSRF middleware, because nosurf parses the form
+// to find the token and would otherwise read far more than that. Reading past the cap
+// fails with *http.MaxBytesError, so an oversized form ends up as a rejected request.
+func limitBodies(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		limit := int64(formBodyLimit)
+		if r.URL.Path == photoUploadPath {
+			limit = photoBodyLimit
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
+		next.ServeHTTP(w, r)
+	})
+}
+
+// securityHeaders sets the headers every response should carry.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "same-origin")
+		h.Set("X-Frame-Options", "DENY")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// requestLogger writes one structured line per request. It logs the path but never
+// the query string, headers, cookies or body, so passwords and session tokens stay out.
+func requestLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+		next.ServeHTTP(ww, r)
+		status := ww.Status()
+		if status == 0 {
+			status = http.StatusOK
+		}
+		slog.Info("request",
+			"method", r.Method, "path", r.URL.Path, "status", status, "bytes", ww.BytesWritten(),
+			"duration_ms", time.Since(start).Milliseconds(), "request_id", middleware.GetReqID(r.Context()), "ip", clientIP(r))
+	})
+}
+
+// clientIP is the connection's address; with TRUST_PROXY, RealIP has already replaced it
+// with the address from the proxy's header.
+func clientIP(r *http.Request) string {
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
 	}
+	return r.RemoteAddr
 }

@@ -32,7 +32,7 @@ type app struct {
 
 func (a *app) clock() time.Time { return a.now }
 
-func newApp(t *testing.T, now time.Time) *app {
+func newApp(t *testing.T, now time.Time, opts ...func(*Deps)) *app {
 	t.Helper()
 	pool := testdb.New(t)
 	a := &app{t: t, pool: pool, now: now, photos: storage.LocalStore{Dir: t.TempDir()}}
@@ -50,6 +50,9 @@ func newApp(t *testing.T, now time.Time) *app {
 		Recap:    service.NewRecapService(pool, settings),
 		Static:   staticFS(t),
 		Now:      a.clock,
+	}
+	for _, o := range opts {
+		o(&deps)
 	}
 	h, err := NewRouter(deps)
 	if err != nil {

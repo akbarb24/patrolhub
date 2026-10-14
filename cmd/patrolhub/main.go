@@ -125,8 +125,8 @@ func serve(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	closer := &job.Closer{Service: service.NewClosingService(pool, settings)}
-	go closer.Run(ctx)
+	go (&job.Closer{Service: service.NewClosingService(pool, settings)}).Run(ctx)
+	go (&job.Retention{Service: service.NewRetentionService(pool, photos)}).Run(ctx)
 
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 

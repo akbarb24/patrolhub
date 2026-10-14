@@ -63,9 +63,11 @@ func NewRouter(d Deps) (http.Handler, error) {
 		r.Use(middleware.RealIP)
 	}
 	r.Use(
-		middleware.Logger,
+		requestLogger,
 		middleware.Recoverer,
+		securityHeaders,
 		middleware.Compress(5),
+		limitBodies,
 		d.Sessions.LoadAndSave,
 		csrfMiddleware,
 	)

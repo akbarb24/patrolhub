@@ -13,7 +13,7 @@ Two docs drive the work (both Indonesian, both in the repo root):
 
 If they conflict, the PRD wins: note the difference and ask the product owner. When unsure about a business rule, stop and ask rather than guess.
 
-**Progress:** Steps 1–11 are done and committed (… public recap, WhatsApp text, CSV export). Next is Step 12 (non-functional: photo retention job, security headers/limits, backup script).
+**Progress:** Steps 1–12 are done and committed (… WhatsApp text, CSV export, retention job, security hardening, backup script). Next is Step 13 (Docker + deploy), then Step 14 (acceptance checklist).
 
 ## Working rules
 
@@ -88,3 +88,6 @@ Concepts that span several files:
 - **Public recap** (`service/recap.go`, `httpx/recap.go`, `view/recap.templ`): `RecapService.NightRows` feeds `domain.BuildMonthRecap` with closed nights that have at least one attendance row (a night without a team is left out). Months after the current one (and years outside 2000–2100) are 404. Responses are `Cache-Control: private, max-age=300` rather than the plan's `public`, because every page carries a CSRF cookie. Both tabs transfer ~84 KB gzipped (HTML + CSS + htmx + Alpine); `TestPageWeightStaysUnder200KB` guards the 200 KB budget. The status markers use `aria-label`s like "7 Oktober: hadir". `aria-current="page"` must be written as a conditional attribute (`if … { aria-current="page" }`), not `aria-current?=`, which renders a bare attribute.
 - **WhatsApp text** (`domain/recap_text.go`, `GET /recap/{yyyy}/{mm}/text?range=month|week`): pure builders; "week" = the seven calendar days ending with the latest closed night, clipped to the month. The "Salin rekap" menu is a native `<details>` plus `web/static/js/recap.js` (no Alpine: the CDN build starts before later deferred scripts, so `Alpine.data` registered there would be too late).
 - **CSV export** (`GET /admin/export/{yyyy}/{mm}.csv`, admin only): UTF-8 BOM, columns `tanggal,hari,status_malam,blok,nama,status_absen,denda`, Indonesian labels, closed nights only. `csvSafe` prefixes `'` to cells starting with `= + - @` or a control character so spreadsheets never evaluate them.
+- **Hardening** (`httpx/middleware.go`): global middleware order is RequestID, RealIP (only with `TRUST_PROXY`), `requestLogger` (slog; logs path but never query/headers/cookies/body), Recoverer, `securityHeaders` (nosniff, `Referrer-Policy: same-origin`, `X-Frame-Options: DENY`), Compress, `limitBodies` (64 KB forms, ~1 MB + overhead for `/patrol/tonight/photos`), sessions, CSRF. `limitBodies` must stay *before* CSRF because nosurf parses the form to find the token; an oversized form therefore ends as a rejected request (403), not a 413. `TestTemplatesNeverUseRawOutput` forbids `templ.Raw`.
+- **Retention** (`service/retention.go`, `job/retention.go`): daily, deletes photos with `created_at` older than 183 days — file first, then row; a missing file still lets the row go, any other file error keeps the row for the next run.
+- `deploy/backup.sh` is the cron script (pg_dump custom format + photo tarball, 30-day cleanup); the dump/restore round trip was verified against the dev database.
