@@ -40,6 +40,7 @@ type Deps struct {
 	Admins   Authenticator
 	Members  *service.MemberService
 	Schedule *service.ScheduleService
+	Patrol   *service.PatrolService
 	Static   fs.FS            // root of the embedded static assets
 	Now      func() time.Time // injectable clock; defaults to time.Now
 }
@@ -82,6 +83,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 			render(w, r, view.RecapPlaceholder())
 		})
 
+		r.Mount("/patrol/tonight", patrolRoutes(d))
 		r.Mount("/admin", adminRoutes(d))
 	})
 

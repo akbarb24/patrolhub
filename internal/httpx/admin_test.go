@@ -68,13 +68,21 @@ func newBrowser(t *testing.T, h http.Handler) *browser {
 func (b *browser) do(method, path string, form url.Values) (*http.Response, string) {
 	b.t.Helper()
 	var body io.Reader
+	hdr := map[string]string{}
 	if form != nil {
 		body = strings.NewReader(form.Encode())
+		hdr["Content-Type"] = "application/x-www-form-urlencoded"
 	}
+	return b.doRaw(method, path, body, hdr)
+}
+
+// doRaw sends any body with extra headers (and the same-origin proof a browser adds).
+func (b *browser) doRaw(method, path string, body io.Reader, hdr map[string]string) (*http.Response, string) {
+	b.t.Helper()
 	req, _ := http.NewRequest(method, b.srv.URL+path, body)
 	req.Header.Set("Sec-Fetch-Site", "same-origin")
-	if form != nil {
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for k, v := range hdr {
+		req.Header.Set(k, v)
 	}
 	resp, err := b.c.Do(req)
 	if err != nil {

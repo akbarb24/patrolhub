@@ -14,6 +14,7 @@ import (
 
 	"github.com/akbarbinaji/patrolhub/internal/config"
 	"github.com/akbarbinaji/patrolhub/internal/service"
+	"github.com/akbarbinaji/patrolhub/internal/storage"
 	"github.com/akbarbinaji/patrolhub/internal/testdb"
 )
 
@@ -39,6 +40,7 @@ func newApp(t *testing.T, now time.Time) *app {
 		Admins:   service.NewAdminService(pool),
 		Members:  service.NewMemberService(pool),
 		Schedule: service.NewScheduleService(pool),
+		Patrol:   service.NewPatrolService(pool, settings, storage.LocalStore{Dir: t.TempDir()}),
 		Static:   fstest.MapFS{},
 		Now:      a.clock,
 	}

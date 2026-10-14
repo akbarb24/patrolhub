@@ -13,7 +13,7 @@ Two docs drive the work (both Indonesian, both in the repo root):
 
 If they conflict, the PRD wins: note the difference and ask the product owner. When unsure about a business rule, stop and ask rather than guess.
 
-**Progress:** Steps 1–6 are done and committed (setup, schema, domain, router/layouts, admin login/settings/QR, members + schedule + `seed-demo`). Next is Step 7 (public report page). `/recap` and `/admin/nights` are still "Segera hadir" placeholders.
+**Progress:** Steps 1–7 are done and committed (… members + schedule + `seed-demo`, public report page `/patrol/tonight`). Next is Step 8 (closer job). `/recap` and `/admin/nights` are still "Segera hadir" placeholders.
 
 ## Working rules
 
@@ -79,3 +79,6 @@ Concepts that span several files:
 - **Integration tests** use `internal/testdb.New(t)`: a throwaway, freshly migrated database created on the server in `DATABASE_URL` and dropped afterwards (skipped when unset), so tests never touch dev data. `httpx/integration_test.go` (`newApp`, `loggedIn`, `browser.post/mustPost`) runs the whole app with an injectable clock (`Deps.Now`); run them with `set -a; . ./.env.example; set +a; go test ./...`.
 - Service-level "not found" is `service.ErrNotFound`; form errors are `service.ValidationErrors` (field → message) which handlers re-render with 422.
 - A schedule rule that has not started yet is deleted when "removed"; a running one gets `effective_to = yesterday` (never deleted, so closed nights keep their team).
+- **Report page** (`httpx/patrol.go`, `service/patrol.go`): every reporter write goes through `PatrolService.write`, which checks the window, locks the night row (`FOR UPDATE`), syncs the team, runs the action, sets `first_reported_at`, and audits (`ANONYMOUS`, IP, UA, `night_id` in detail) in one transaction. Errors map to short Indonesian plain-text bodies that `web/static/js/patrol.js` shows as a toast; for window/night-closed the handler sets `HX-Redirect: /patrol/tonight` with 409 so htmx reloads into the closed state. Photo uploads are sniffed (`http.DetectContentType`), ≤1 MB, stored via `storage.PhotoStore` and the file is deleted again if the transaction fails.
+- Fragment endpoints are `Cache-Control: no-store`; the patrol group uses `limitByIP(60)` and per-route `maxBody` (64 KB forms, ~1 MB + overhead for photos).
+- `web/static/js/photo.js` (resize ≤1280px, JPEG q0.7 then 0.5 if >500 KB, optional geolocation, fetch upload) was only syntax-checked, never run in a real browser/phone.

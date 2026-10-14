@@ -103,3 +103,21 @@ func requireAdmin(sessions *scs.SessionManager) func(http.Handler) http.Handler 
 		})
 	}
 }
+
+// noStore keeps fragments and live pages out of every cache.
+func noStore(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// maxBody caps the request body; reading past it fails with *http.MaxBytesError.
+func maxBody(n int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, n)
+			next.ServeHTTP(w, r)
+		})
+	}
+}

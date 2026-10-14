@@ -4,8 +4,12 @@ package view
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/akbarbinaji/patrolhub/internal/config"
 	"github.com/akbarbinaji/patrolhub/internal/domain"
 	"github.com/akbarbinaji/patrolhub/internal/service"
 )
@@ -90,3 +94,10 @@ func joinTeam(team []service.TeamEntry) string {
 	}
 	return strings.Join(names, ", ")
 }
+
+// clockText renders a time as 22.41 in Jakarta, matching how people write time in Indonesia.
+func ClockText(t time.Time) string { return t.In(config.Jakarta).Format("15.04") }
+
+func clockDotted(c domain.Clock) string { return fmt.Sprintf("%02d.%02d", c.Hour, c.Min) }
+
+func itoa(n int64) string { return strconv.FormatInt(n, 10) }

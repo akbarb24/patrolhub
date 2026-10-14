@@ -20,6 +20,7 @@ import (
 	"github.com/akbarbinaji/patrolhub/internal/config"
 	"github.com/akbarbinaji/patrolhub/internal/httpx"
 	"github.com/akbarbinaji/patrolhub/internal/service"
+	"github.com/akbarbinaji/patrolhub/internal/storage"
 	"github.com/akbarbinaji/patrolhub/migrations"
 	"github.com/akbarbinaji/patrolhub/web"
 )
@@ -105,13 +106,15 @@ func serve(cfg config.Config) error {
 	}
 	defer pool.Close()
 
+	settings := service.NewSettingsService(pool)
 	handler, err := httpx.NewRouter(httpx.Deps{
 		Config:   cfg,
 		Sessions: httpx.NewSessionManager(pool, cfg),
-		Settings: service.NewSettingsService(pool),
+		Settings: settings,
 		Admins:   service.NewAdminService(pool),
 		Members:  service.NewMemberService(pool),
 		Schedule: service.NewScheduleService(pool),
+		Patrol:   service.NewPatrolService(pool, settings, storage.LocalStore{Dir: cfg.PhotoDir}),
 		Static:   static,
 	})
 	if err != nil {
