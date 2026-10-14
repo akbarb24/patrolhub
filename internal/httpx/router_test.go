@@ -55,10 +55,10 @@ func TestRootRedirectsToRecap(t *testing.T) {
 	}
 }
 
-func TestRecapRendersPublicLayout(t *testing.T) {
-	rec := do(newTestRouter(&fakeSettings{}), "GET", "/recap", nil, nil)
+func TestPublicLayout(t *testing.T) {
+	rec := do(newTestRouter(&fakeSettings{}), "GET", "/admin/login", nil, nil)
 	body := rec.Body.String()
-	for _, want := range []string{`lang="id"`, "PatrolHub · RT 02", "Segera hadir", "/static/css/app.css", "X-CSRF-Token"} {
+	for _, want := range []string{`lang="id"`, "PatrolHub · RT 02", "Masuk Admin", "/static/css/app.css", "X-CSRF-Token", `name="viewport"`} {
 		if rec.Code != 200 || !strings.Contains(body, want) {
 			t.Fatalf("status %d, missing %q in:\n%s", rec.Code, want, body)
 		}
@@ -66,7 +66,7 @@ func TestRecapRendersPublicLayout(t *testing.T) {
 }
 
 func TestPageSurvivesSettingsFailure(t *testing.T) {
-	rec := do(newTestRouter(&fakeSettings{loadErr: context.DeadlineExceeded}), "GET", "/recap", nil, nil)
+	rec := do(newTestRouter(&fakeSettings{loadErr: context.DeadlineExceeded}), "GET", "/admin/login", nil, nil)
 	if rec.Code != 200 || strings.Contains(rec.Body.String(), "RT 02") || !strings.Contains(rec.Body.String(), "PatrolHub") {
 		t.Fatalf("%d", rec.Code)
 	}
@@ -81,7 +81,7 @@ func TestPostWithoutCSRFTokenIsForbidden(t *testing.T) {
 
 func csrfToken(t *testing.T, h http.Handler) (string, []*http.Cookie) {
 	t.Helper()
-	get := do(h, "GET", "/recap", nil, nil)
+	get := do(h, "GET", "/admin/login", nil, nil)
 	m := regexp.MustCompile(`X-CSRF-Token&#34;:&#34;([^&]+)&#34;`).FindStringSubmatch(get.Body.String())
 	if m == nil {
 		t.Fatalf("no token in page:\n%s", get.Body.String())

@@ -2,11 +2,11 @@ package httpx
 
 import (
 	"context"
+	"io/fs"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
-	"testing/fstest"
 	"time"
 
 	"github.com/alexedwards/scs/v2"
@@ -16,6 +16,7 @@ import (
 	"github.com/akbarbinaji/patrolhub/internal/service"
 	"github.com/akbarbinaji/patrolhub/internal/storage"
 	"github.com/akbarbinaji/patrolhub/internal/testdb"
+	"github.com/akbarbinaji/patrolhub/web"
 )
 
 // app is the whole application over a throwaway database with a controllable clock.
@@ -46,7 +47,8 @@ func newApp(t *testing.T, now time.Time) *app {
 		Patrol:   service.NewPatrolService(pool, settings, a.photos),
 		Nights:   service.NewNightService(pool, settings, a.photos),
 		Fines:    service.NewFineService(pool),
-		Static:   fstest.MapFS{},
+		Recap:    service.NewRecapService(pool, settings),
+		Static:   staticFS(t),
 		Now:      a.clock,
 	}
 	h, err := NewRouter(deps)
@@ -116,4 +118,14 @@ var wibZone = config.Jakarta
 
 func wibTime(y int, m time.Month, d, h, min int) time.Time {
 	return time.Date(y, m, d, h, min, 0, 0, wibZone)
+}
+
+// staticFS is the real embedded asset tree, so tests can measure page weight.
+func staticFS(t *testing.T) fs.FS {
+	t.Helper()
+	sub, err := fs.Sub(web.Static, "static")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sub
 }

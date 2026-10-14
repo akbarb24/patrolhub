@@ -9,9 +9,27 @@ import (
 
 templ scheduleTabs(active string) {
 	<nav class="tabs tabs-bordered mb-4" aria-label="Jadwal">
-		<a href="/admin/schedule" class={ "tab", templ.KV("tab-active", active == "rules") } aria-current?={ active == "rules" }>Jadwal tetap</a>
-		<a href="/admin/schedule/overrides" class={ "tab", templ.KV("tab-active", active == "overrides") } aria-current?={ active == "overrides" }>Perubahan per tanggal</a>
-		<a href="/admin/schedule/preview" class={ "tab", templ.KV("tab-active", active == "preview") } aria-current?={ active == "preview" }>Pratinjau bulan</a>
+		<a
+			href="/admin/schedule"
+			class={ "tab", templ.KV("tab-active", active == "rules") }
+			if active == "rules" {
+				aria-current="page"
+			}
+		>Jadwal tetap</a>
+		<a
+			href="/admin/schedule/overrides"
+			class={ "tab", templ.KV("tab-active", active == "overrides") }
+			if active == "overrides" {
+				aria-current="page"
+			}
+		>Perubahan per tanggal</a>
+		<a
+			href="/admin/schedule/preview"
+			class={ "tab", templ.KV("tab-active", active == "preview") }
+			if active == "preview" {
+				aria-current="page"
+			}
+		>Pratinjau bulan</a>
 	</nav>
 }
 

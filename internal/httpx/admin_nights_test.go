@@ -13,6 +13,11 @@ import (
 // then closes it with the closer at 06:05. It returns an admin browser.
 func closedNight(t *testing.T, rain bool) (*app, *browser) {
 	t.Helper()
+	return closedNightWithNote(t, rain, "Aman, lampu pos mati")
+}
+
+func closedNightWithNote(t *testing.T, rain bool, note string) (*app, *browser) {
+	t.Helper()
 	a, reporter := patrolApp(t)
 	admin := a.loggedIn()
 	admin.mustPost("/admin/settings", "/admin/settings", url.Values{
@@ -21,7 +26,7 @@ func closedNight(t *testing.T, rain bool) (*app, *browser) {
 	}, http.StatusSeeOther)
 
 	reporter.hxPost("/patrol/tonight/attendance/1", url.Values{"present": {"true"}})
-	reporter.hxPost("/patrol/tonight/situation", url.Values{"note": {"Aman, lampu pos mati"}})
+	reporter.hxPost("/patrol/tonight/situation", url.Values{"note": {note}})
 	for i := 0; i < 3; i++ {
 		if resp, _ := reporter.uploadPhoto(fakeJPEG(50+i), map[string]string{"lat": "-6.2", "lng": "106.8"}); resp.StatusCode != 200 {
 			t.Fatalf("photo %d: %d", i, resp.StatusCode)

@@ -13,7 +13,7 @@ Two docs drive the work (both Indonesian, both in the repo root):
 
 If they conflict, the PRD wins: note the difference and ask the product owner. When unsure about a business rule, stop and ask rather than guess.
 
-**Progress:** Steps 1–9 are done and committed (… closer job, admin night panel + fines). Next is Step 10 (public monthly recap). `/recap` is still a "Segera hadir" placeholder.
+**Progress:** Steps 1–10 are done and committed (… admin night panel + fines, public recap). Next is Step 11 (Should features: WhatsApp text, CSV export).
 
 ## Working rules
 
@@ -85,3 +85,4 @@ Concepts that span several files:
 - **Closer** (`service/closing.go`, run by `job.Closer` from `serve`): `Tick(now)` is a no-op without `go_live_date`; it creates missing nights only for days that have a team (an unscheduled weekday has no patrol night — creating one would show as a bogus "no report"), then closes every night whose window ended, skipping nights before go-live. Per-night errors are logged and joined, not fatal. It re-syncs the team right before closing.
 - **Admin night actions** (`service/nights.go`): mark/confirm/reject rain and attendance correction all run via `adminAction` (locks the night, writes an `admin:<id>` audit entry with `night_id` in detail). Corrections are allowed only on **closed**, non-rained-out nights (on an open night the closer would overwrite them) and need a reason of ≥5 characters; fines are recalculated from the night's frozen `fine_rate` (falling back to the current rate if NULL). Rejecting a rain request on a closed night recalculates fines the same way. Admin photos are served at `/admin/photos/{id}` (`private, max-age=3600`).
 - Fines (`service/fines.go`): per member and calendar month, total = sum of `fine_amount` on closed nights, minus recorded `fine_payment`s; negative remaining means overpaid. `/admin/fines` redirects to the current month.
+- **Public recap** (`service/recap.go`, `httpx/recap.go`, `view/recap.templ`): `RecapService.NightRows` feeds `domain.BuildMonthRecap` with closed nights that have at least one attendance row (a night without a team is left out). Months after the current one (and years outside 2000–2100) are 404. Responses are `Cache-Control: private, max-age=300` rather than the plan's `public`, because every page carries a CSRF cookie. Both tabs transfer ~84 KB gzipped (HTML + CSS + htmx + Alpine); `TestPageWeightStaysUnder200KB` guards the 200 KB budget. The status markers use `aria-label`s like "7 Oktober: hadir". `aria-current="page"` must be written as a conditional attribute (`if … { aria-current="page" }`), not `aria-current?=`, which renders a bare attribute.

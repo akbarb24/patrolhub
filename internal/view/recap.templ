@@ -1,0 +1,177 @@
+package view
+
+import (
+	"fmt"
+
+	"github.com/akbarbinaji/patrolhub/internal/domain"
+	"github.com/akbarbinaji/patrolhub/internal/service"
+)
+
+// RecapNav carries what the shared recap header needs.
+type RecapNav struct {
+	Title     string // "September 2026"
+	Prev      string // href of the previous month
+	Next      string // href of the next month; empty when already on the current month
+	Summary   string // href of the Ringkasan tab
+	Situation string // href of the Situasi tab
+	TextBase  string // base URL of the copy-text endpoint, e.g. /recap/2026/09/text
+}
+
+templ recapHeader(nav RecapNav, active string) {
+	<h1 class="text-xl font-semibold">Rekap Ronda</h1>
+	<div class="mt-2 flex items-center justify-between">
+		<a class="btn btn-sm btn-ghost" href={ templ.SafeURL(nav.Prev) } aria-label="Bulan sebelumnya">‹</a>
+		<span class="font-medium">{ nav.Title }</span>
+		if nav.Next != "" {
+			<a class="btn btn-sm btn-ghost" href={ templ.SafeURL(nav.Next) } aria-label="Bulan berikutnya">›</a>
+		} else {
+			<span class="btn btn-sm btn-ghost btn-disabled" aria-disabled="true" aria-label="Bulan berikutnya belum tersedia">›</span>
+		}
+	</div>
+	<nav class="tabs tabs-bordered mt-2" aria-label="Rekap">
+		<a
+			href={ templ.SafeURL(nav.Summary) }
+			class={ "tab", templ.KV("tab-active", active == "summary") }
+			if active == "summary" {
+				aria-current="page"
+			}
+		>Ringkasan</a>
+		<a
+			href={ templ.SafeURL(nav.Situation) }
+			class={ "tab", templ.KV("tab-active", active == "situations") }
+			if active == "situations" {
+				aria-current="page"
+			}
+		>Situasi</a>
+	</nav>
+}
+
+templ RecapSummaryPage(r service.Recap, nav RecapNav) {
+	@PublicLayout("Rekap Ronda " + nav.Title) {
+		@recapHeader(nav, "summary")
+		if r.Summary.NightsTotal == 0 {
+			@EmptyState("Belum ada data untuk bulan ini.")
+		} else {
+			<section class="mt-4 grid grid-cols-2 gap-3" aria-label="Ringkasan bulan">
+				<div class="rounded-box bg-base-100 p-3 shadow-sm">
+					<p class="text-xs text-base-content/60">Malam terlapor</p>
+					<p class="text-2xl font-semibold">{ fmt.Sprintf("%d/%d", r.Summary.Reported, r.Summary.NightsTotal) }</p>
+					<p class="text-xs text-base-content/60">{ fmt.Sprintf("%d hujan · %d tanpa laporan", r.Summary.Rain, r.Summary.NoReport) }</p>
+				</div>
+				<div class="rounded-box bg-base-100 p-3 shadow-sm">
+					<p class="text-xs text-base-content/60">Kehadiran</p>
+					<p class="text-2xl font-semibold">{ fmt.Sprintf("%d%%", r.Summary.RatePercent) }</p>
+					<p class="text-xs text-base-content/60">{ fmt.Sprintf("%d dari %d jadwal", r.Summary.PresentCount, r.Summary.SlotCount) }</p>
+				</div>
+				<div class="col-span-2 rounded-box bg-[#1E3A6E] p-3 text-white shadow-sm">
+					<p class="text-xs opacity-80">Total denda { domain.MonthNameID(r.Month) }</p>
+					<p class="text-2xl font-semibold">{ domain.FormatRupiah(r.Summary.TotalFine) }</p>
+					<p class="text-xs opacity-80">{ fmt.Sprintf("%d peserta kena denda · %s / tidak hadir", r.Summary.FinedMembers, domain.FormatRupiah(r.FineRate)) }</p>
+				</div>
+			</section>
+			if nav.TextBase != "" {
+			<div class="mt-3 flex items-center justify-end gap-2">
+				<p id="copy-status" role="status" class="hidden text-sm text-success">Rekap disalin</p>
+				<details id="copy-menu" class="dropdown dropdown-end">
+					<summary class="btn btn-sm">Salin rekap</summary>
+					<ul class="menu dropdown-content z-10 mt-1 w-48 rounded-box bg-base-100 p-1 shadow-lg">
+						<li><button type="button" data-copy="month" data-base={ nav.TextBase }>Bulan ini</button></li>
+						<li><button type="button" data-copy="week" data-base={ nav.TextBase }>7 malam terakhir</button></li>
+					</ul>
+				</details>
+			</div>
+			<script src="/static/js/recap.js" defer></script>
+			}
+			<ul class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm" aria-label="Legenda">
+				<li class="inline-flex items-center gap-1">@StatusDot(domain.Present, "Hadir") Hadir</li>
+				<li class="inline-flex items-center gap-1">@StatusDot(domain.Absent, "Tidak hadir") Tidak hadir</li>
+				<li class="inline-flex items-center gap-1">@StatusDot(domain.RainedOut, "Hujan") Hujan</li>
+			</ul>
+			<div class="mt-4 space-y-4">
+				for _, c := range r.Cards {
+					@dayCard(c)
+				}
+			</div>
+		}
+	}
+}
+
+templ dayCard(c domain.DayCard) {
+	<section class="rounded-box bg-base-100 p-3 shadow-sm" aria-labelledby={ fmt.Sprintf("card-%d", c.Weekday) }>
+		<div class="flex items-baseline justify-between">
+			<h2 id={ fmt.Sprintf("card-%d", c.Weekday) } class="font-semibold">{ c.Label }</h2>
+			<span class="text-xs text-base-content/60">{ fmt.Sprintf("%d malam jaga", len(c.Dates)) }</span>
+		</div>
+		if len(c.Dates) == 0 {
+			<p class="py-3 text-sm text-base-content/60">Belum ada malam jaga bulan ini.</p>
+		} else {
+			<div class="mt-2 text-sm">
+				<div class="grid items-center gap-x-1 border-b border-base-300 pb-1 text-xs text-base-content/60" style={ gridStyle(len(c.Dates)) }>
+					<span></span>
+					for _, d := range c.Dates {
+						<span class="text-center">{ fmt.Sprint(d.Day) }</span>
+					}
+					<span class="text-right">Denda</span>
+				</div>
+				for _, row := range c.Rows {
+					<div class="grid items-center gap-x-1 border-b border-base-200 py-1.5" style={ gridStyle(len(c.Dates)) }>
+						<span class="truncate">{ row.DisplayName }</span>
+						for i, cell := range row.Cells {
+							<span class="flex justify-center">@StatusDot(cell, dotLabel(c.Dates[i], cell))</span>
+						}
+						<span class="text-right text-xs">{ fineCell(row.Fine) }</span>
+					</div>
+				}
+				<div class="flex justify-between pt-2 font-medium">
+					<span>Subtotal tim</span>
+					<span>{ domain.FormatRupiah(c.Subtotal) }</span>
+				</div>
+			</div>
+		}
+	</section>
+}
+
+templ RecapSituationsPage(r service.Recap, nav RecapNav, onlySpecial bool) {
+	@PublicLayout("Rekap Ronda " + nav.Title) {
+		@recapHeader(nav, "situations")
+		<div class="mt-4 flex gap-2">
+			<a href={ templ.SafeURL(nav.Situation) } class={ "btn btn-sm", templ.KV("btn-primary", !onlySpecial) }>Semua malam</a>
+			<a href={ templ.SafeURL(nav.Situation + "?special=1") } class={ "btn btn-sm", templ.KV("btn-primary", onlySpecial) }>Ada catatan khusus</a>
+		</div>
+		if len(r.Timeline) == 0 {
+			@EmptyState("Belum ada data untuk bulan ini.")
+		}
+		<ol class="mt-4 space-y-3">
+			for _, it := range r.Timeline {
+				if !onlySpecial || it.Special {
+					<li class="flex gap-3 rounded-box bg-base-100 p-3 shadow-sm">
+						<div class="w-12 shrink-0 text-center">
+							<p class="text-2xl font-semibold leading-none">{ fmt.Sprint(it.Date.Day) }</p>
+							<p class="text-xs text-base-content/60">{ weekdayShort(it.Weekday) }</p>
+						</div>
+						<div class="min-w-0 flex-1">
+							<p class="flex flex-wrap items-center gap-1">
+								switch it.Status {
+									case domain.NightRainedOut:
+										<span class="badge badge-info">Hujan</span>
+									case domain.NightNoReport:
+										<span class="badge badge-error">Tanpa laporan</span>
+									case domain.NightRainRequested:
+										<span class="badge badge-warning">Menunggu konfirmasi hujan</span>
+									default:
+										<span class="badge badge-primary">{ fmt.Sprintf("%d/%d hadir", it.Present, it.Total) }</span>
+								}
+								if it.Special {
+									<span class="badge badge-warning badge-outline">Catatan khusus</span>
+								}
+							</p>
+							if it.Note != "" {
+								<p class="mt-1 whitespace-pre-line break-words text-sm">{ it.Note }</p>
+							}
+						</div>
+					</li>
+				}
+			}
+		</ol>
+	}
+}

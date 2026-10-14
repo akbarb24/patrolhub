@@ -119,6 +119,7 @@ func serve(cfg config.Config) error {
 		Patrol:   service.NewPatrolService(pool, settings, photos),
 		Nights:   service.NewNightService(pool, settings, photos),
 		Fines:    service.NewFineService(pool),
+		Recap:    service.NewRecapService(pool, settings),
 		Static:   static,
 	})
 	if err != nil {

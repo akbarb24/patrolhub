@@ -14,7 +14,6 @@ import (
 
 	"github.com/akbarbinaji/patrolhub/internal/config"
 	"github.com/akbarbinaji/patrolhub/internal/service"
-	"github.com/akbarbinaji/patrolhub/internal/view"
 )
 
 // SettingsLoader is what the page middleware needs from the settings service.
@@ -43,6 +42,7 @@ type Deps struct {
 	Patrol   *service.PatrolService
 	Nights   *service.NightService
 	Fines    *service.FineService
+	Recap    *service.RecapService
 	Static   fs.FS            // root of the embedded static assets
 	Now      func() time.Time // injectable clock; defaults to time.Now
 }
@@ -81,9 +81,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/recap", http.StatusFound)
 		})
-		r.Get("/recap", func(w http.ResponseWriter, r *http.Request) {
-			render(w, r, view.RecapPlaceholder())
-		})
+		r.Mount("/recap", recapRoutes(d))
 
 		r.Mount("/patrol/tonight", patrolRoutes(d))
 		r.Mount("/admin", adminRoutes(d))

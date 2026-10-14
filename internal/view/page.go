@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/a-h/templ"
 	"github.com/akbarbinaji/patrolhub/internal/config"
 	"github.com/akbarbinaji/patrolhub/internal/domain"
 	"github.com/akbarbinaji/patrolhub/internal/service"
@@ -154,4 +155,28 @@ func rupiahNeg(n int) string {
 		return "Lebih bayar " + domain.FormatRupiah(-n)
 	}
 	return domain.FormatRupiah(n)
+}
+
+// gridStyle lays out one day-card row: name, one column per duty date, fine.
+func gridStyle(dates int) templ.SafeCSS {
+	return templ.SafeCSS(fmt.Sprintf("grid-template-columns: minmax(0,1fr) repeat(%d, 1.75rem) 4.25rem", dates))
+}
+
+func dotLabel(d domain.Date, s domain.AttendanceStatus) string {
+	text := map[domain.AttendanceStatus]string{domain.Present: "hadir", domain.Absent: "tidak hadir", domain.RainedOut: "hujan"}[s]
+	return fmt.Sprintf("%d %s: %s", d.Day, domain.MonthNameID(d.Month), text)
+}
+
+func fineCell(n int) string {
+	if n == 0 {
+		return "–"
+	}
+	return domain.FormatRupiah(n)
+}
+
+func weekdayShort(name string) string {
+	if len(name) > 3 {
+		return name[:3]
+	}
+	return name
 }
