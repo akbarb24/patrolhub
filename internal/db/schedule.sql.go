@@ -81,6 +81,15 @@ func (q *Queries) DeleteOverride(ctx context.Context, id int64) error {
 	return err
 }
 
+const deleteRule = `-- name: DeleteRule :exec
+DELETE FROM schedule_rule WHERE id = $1
+`
+
+func (q *Queries) DeleteRule(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, deleteRule, id)
+	return err
+}
+
 const endRule = `-- name: EndRule :exec
 UPDATE schedule_rule SET effective_to = $2 WHERE id = $1
 `
@@ -93,6 +102,77 @@ type EndRuleParams struct {
 func (q *Queries) EndRule(ctx context.Context, arg EndRuleParams) error {
 	_, err := q.db.Exec(ctx, endRule, arg.ID, arg.EffectiveTo)
 	return err
+}
+
+const getOverride = `-- name: GetOverride :one
+SELECT id, patrol_date, action, member_id, replacement_member_id, note, created_at FROM schedule_override WHERE id = $1
+`
+
+func (q *Queries) GetOverride(ctx context.Context, id int64) (ScheduleOverride, error) {
+	row := q.db.QueryRow(ctx, getOverride, id)
+	var i ScheduleOverride
+	err := row.Scan(
+		&i.ID,
+		&i.PatrolDate,
+		&i.Action,
+		&i.MemberID,
+		&i.ReplacementMemberID,
+		&i.Note,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getRule = `-- name: GetRule :one
+SELECT id, member_id, day_of_week, effective_from, effective_to, created_at FROM schedule_rule WHERE id = $1
+`
+
+func (q *Queries) GetRule(ctx context.Context, id int64) (ScheduleRule, error) {
+	row := q.db.QueryRow(ctx, getRule, id)
+	var i ScheduleRule
+	err := row.Scan(
+		&i.ID,
+		&i.MemberID,
+		&i.DayOfWeek,
+		&i.EffectiveFrom,
+		&i.EffectiveTo,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const listCurrentRules = `-- name: ListCurrentRules :many
+SELECT id, member_id, day_of_week, effective_from, effective_to, created_at FROM schedule_rule
+WHERE effective_to IS NULL OR effective_to >= $1::date
+ORDER BY day_of_week, member_id, effective_from
+`
+
+// Rules that are running on the given date or start later.
+func (q *Queries) ListCurrentRules(ctx context.Context, onDate pgtype.Date) ([]ScheduleRule, error) {
+	rows, err := q.db.Query(ctx, listCurrentRules, onDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ScheduleRule
+	for rows.Next() {
+		var i ScheduleRule
+		if err := rows.Scan(
+			&i.ID,
+			&i.MemberID,
+			&i.DayOfWeek,
+			&i.EffectiveFrom,
+			&i.EffectiveTo,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listOverridesBetween = `-- name: ListOverridesBetween :many

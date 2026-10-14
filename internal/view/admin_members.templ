@@ -1,0 +1,91 @@
+package view
+
+import "strconv"
+
+type MemberRow struct {
+	ID     int64
+	Label  string
+	Block  string
+	Phone  string
+	Notes  string
+	Active bool
+}
+
+templ memberFormFields(form Form) {
+	@field("Blok rumah (wajib)", "house_block", "text", form.Values["house_block"], form.Errors["house_block"], "Mis. C-10. Disimpan dengan huruf besar.")
+	@field("Nama (opsional)", "name", "text", form.Values["name"], form.Errors["name"], "Bila kosong, peserta tampil sebagai blok saja.")
+	@field("No. HP (opsional)", "phone", "tel", form.Values["phone"], form.Errors["phone"], "Tidak pernah tampil di halaman publik.")
+	@textareaField("Catatan", "notes", form.Values["notes"], form.Errors["notes"])
+}
+
+templ MembersPage(rows []MemberRow, form Form, flash string) {
+	@AdminLayout("Anggota") {
+		<h1 class="mb-4 text-xl font-semibold">Anggota</h1>
+		@flashBlock(flash)
+		<div class="overflow-x-auto rounded-box bg-base-100 shadow-sm">
+			<table class="table">
+				<thead>
+					<tr>
+						<th>Nama</th>
+						<th>Blok</th>
+						<th>No. HP</th>
+						<th>Status</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, m := range rows {
+						<tr class={ templ.KV("opacity-60", !m.Active) }>
+							<td>{ m.Label }</td>
+							<td>{ m.Block }</td>
+							<td>{ m.Phone }</td>
+							<td>
+								if m.Active {
+									<span class="badge badge-success badge-outline">Aktif</span>
+								} else {
+									<span class="badge badge-ghost">Nonaktif</span>
+								}
+							</td>
+							<td class="whitespace-nowrap text-right">
+								<a class="btn btn-ghost btn-sm" href={ templ.SafeURL("/admin/members/" + strconv.FormatInt(m.ID, 10) + "/edit") }>Ubah</a>
+								<form method="post" action={ templ.SafeURL("/admin/members/" + strconv.FormatInt(m.ID, 10) + "/active") } class="inline">
+									@csrfField()
+									if m.Active {
+										<input type="hidden" name="active" value="false"/>
+										<button type="submit" class="btn btn-ghost btn-sm">Nonaktifkan</button>
+									} else {
+										<input type="hidden" name="active" value="true"/>
+										<button type="submit" class="btn btn-ghost btn-sm">Aktifkan</button>
+									}
+								</form>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+			if len(rows) == 0 {
+				@EmptyState("Belum ada anggota.")
+			}
+		</div>
+		<h2 class="mb-2 mt-6 text-lg font-semibold">Tambah anggota</h2>
+		<form method="post" action="/admin/members" class="card max-w-xl bg-base-100 p-4 shadow-sm" novalidate>
+			@csrfField()
+			@memberFormFields(form)
+			<button type="submit" class="btn btn-primary">Tambah</button>
+		</form>
+	}
+}
+
+templ MemberEditPage(id int64, form Form) {
+	@AdminLayout("Ubah Anggota") {
+		<h1 class="mb-4 text-xl font-semibold">Ubah anggota</h1>
+		<form method="post" action={ templ.SafeURL("/admin/members/" + strconv.FormatInt(id, 10)) } class="card max-w-xl bg-base-100 p-4 shadow-sm" novalidate>
+			@csrfField()
+			@memberFormFields(form)
+			<div class="flex gap-2">
+				<button type="submit" class="btn btn-primary">Simpan</button>
+				<a href="/admin/members" class="btn btn-ghost">Batal</a>
+			</div>
+		</form>
+	}
+}

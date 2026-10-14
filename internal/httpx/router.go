@@ -6,6 +6,7 @@ import (
 	"context"
 	"io/fs"
 	"net/http"
+	"time"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
@@ -37,10 +38,16 @@ type Deps struct {
 	Sessions *scs.SessionManager
 	Settings SettingsStore
 	Admins   Authenticator
-	Static   fs.FS // root of the embedded static assets
+	Members  *service.MemberService
+	Schedule *service.ScheduleService
+	Static   fs.FS            // root of the embedded static assets
+	Now      func() time.Time // injectable clock; defaults to time.Now
 }
 
 func NewRouter(d Deps) (http.Handler, error) {
+	if d.Now == nil {
+		d.Now = time.Now
+	}
 	csrfMiddleware, err := csrf(d.Config.IsProduction(), d.Config.Origin())
 	if err != nil {
 		return nil, err

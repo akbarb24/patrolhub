@@ -4,8 +4,10 @@ package view
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/akbarbinaji/patrolhub/internal/domain"
+	"github.com/akbarbinaji/patrolhub/internal/service"
 )
 
 // PageData is per-request data every layout needs. The HTTP layer puts it in the
@@ -79,4 +81,12 @@ func flashClass(kind string) string {
 		return "alert-warning"
 	}
 	return "alert-info"
+}
+
+func joinTeam(team []service.TeamEntry) string {
+	names := make([]string, len(team))
+	for i, t := range team {
+		names[i] = t.DisplayName
+	}
+	return strings.Join(names, ", ")
 }

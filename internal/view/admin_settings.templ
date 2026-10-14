@@ -23,7 +23,7 @@ templ field(label, name, typ, value, errMsg, hint string) {
 	</div>
 }
 
-templ SettingsPage(form SettingsForm, flash string) {
+templ SettingsPage(form Form, flash string) {
 	@AdminLayout("Pengaturan") {
 		<h1 class="mb-4 text-xl font-semibold">Pengaturan</h1>
 		if flash != "" {

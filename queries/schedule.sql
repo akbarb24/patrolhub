@@ -32,3 +32,18 @@ RETURNING *;
 
 -- name: DeleteOverride :exec
 DELETE FROM schedule_override WHERE id = $1;
+
+-- name: GetRule :one
+SELECT * FROM schedule_rule WHERE id = $1;
+
+-- name: ListCurrentRules :many
+-- Rules that are running on the given date or start later.
+SELECT * FROM schedule_rule
+WHERE effective_to IS NULL OR effective_to >= sqlc.arg(on_date)::date
+ORDER BY day_of_week, member_id, effective_from;
+
+-- name: DeleteRule :exec
+DELETE FROM schedule_rule WHERE id = $1;
+
+-- name: GetOverride :one
+SELECT * FROM schedule_override WHERE id = $1;

@@ -13,7 +13,7 @@ Two docs drive the work (both Indonesian, both in the repo root):
 
 If they conflict, the PRD wins: note the difference and ask the product owner. When unsure about a business rule, stop and ask rather than guess.
 
-**Progress:** Steps 1 (setup), 2 (schema + sqlc queries + `service.WithTx`), 3 (`internal/domain`, ~99% covered), 4 (router, layouts, settings service) and 5 (admin login, settings page, QR) are done and committed. Next is Step 6 (members and schedule). `/recap` and `/admin/nights` are still "Segera hadir" placeholders; `seed-demo` is a stub.
+**Progress:** Steps 1–6 are done and committed (setup, schema, domain, router/layouts, admin login/settings/QR, members + schedule + `seed-demo`). Next is Step 7 (public report page). `/recap` and `/admin/nights` are still "Segera hadir" placeholders.
 
 ## Working rules
 
@@ -76,3 +76,6 @@ Concepts that span several files:
 - Rate limiting uses `limitByIP(n)` (keys on `RemoteAddr`, not `X-Forwarded-For`, so it cannot be forged; with `TRUST_PROXY=true` the RealIP middleware has already rewritten `RemoteAddr`). Reuse it for `/patrol/tonight` in Step 7 (60/min). Do not use `httprate.LimitByIP`.
 - Flash messages: `sessions.Put(ctx, sessionFlash, msg)` then redirect (POST-redirect-GET); the GET handler reads it with `PopString`. Invalid forms re-render with 422 and echo submitted values via `view.SettingsForm`-style `Values`/`Errors` maps keyed by field name.
 - `create-admin` reads the password twice without echo on a terminal, or two lines when stdin is piped (`printf 'pw\npw\n' | patrolhub create-admin <user>`; also works with `docker compose exec -T`). Passwords need ≥10 characters; `AdminService.Authenticate` does a dummy bcrypt compare for unknown users to equalize timing.
+- **Integration tests** use `internal/testdb.New(t)`: a throwaway, freshly migrated database created on the server in `DATABASE_URL` and dropped afterwards (skipped when unset), so tests never touch dev data. `httpx/integration_test.go` (`newApp`, `loggedIn`, `browser.post/mustPost`) runs the whole app with an injectable clock (`Deps.Now`); run them with `set -a; . ./.env.example; set +a; go test ./...`.
+- Service-level "not found" is `service.ErrNotFound`; form errors are `service.ValidationErrors` (field → message) which handlers re-render with 422.
+- A schedule rule that has not started yet is deleted when "removed"; a running one gets `effective_to = yesterday` (never deleted, so closed nights keep their team).

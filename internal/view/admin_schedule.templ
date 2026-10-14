@@ -1,0 +1,185 @@
+package view
+
+import (
+	"strconv"
+
+	"github.com/akbarbinaji/patrolhub/internal/domain"
+	"github.com/akbarbinaji/patrolhub/internal/service"
+)
+
+templ scheduleTabs(active string) {
+	<nav class="tabs tabs-bordered mb-4" aria-label="Jadwal">
+		<a href="/admin/schedule" class={ "tab", templ.KV("tab-active", active == "rules") } aria-current?={ active == "rules" }>Jadwal tetap</a>
+		<a href="/admin/schedule/overrides" class={ "tab", templ.KV("tab-active", active == "overrides") } aria-current?={ active == "overrides" }>Perubahan per tanggal</a>
+		<a href="/admin/schedule/preview" class={ "tab", templ.KV("tab-active", active == "preview") } aria-current?={ active == "preview" }>Pratinjau bulan</a>
+	</nav>
+}
+
+templ SchedulePage(week [7][]service.RuleView, members, days []Option, form Form, flash string) {
+	@AdminLayout("Jadwal") {
+		<h1 class="mb-4 text-xl font-semibold">Jadwal</h1>
+		@scheduleTabs("rules")
+		@flashBlock(flash)
+		<div class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+			for i, rules := range week {
+				<section class="card bg-base-100 p-3 shadow-sm" aria-labelledby={ "day-" + strconv.Itoa(i+1) }>
+					<h2 id={ "day-" + strconv.Itoa(i+1) } class="mb-2 font-semibold">{ domain.WeekdayNameID(i + 1) }</h2>
+					if len(rules) == 0 {
+						<p class="text-sm text-base-content/60">Belum ada peserta.</p>
+					}
+					<ul class="space-y-1">
+						for _, r := range rules {
+							<li class="flex items-center justify-between gap-2 text-sm">
+								<span>
+									{ r.DisplayName }
+									if r.Upcoming {
+										<span class="block text-xs text-base-content/60">mulai { domain.FormatDateID(r.From) }</span>
+									}
+								</span>
+								<form method="post" action={ templ.SafeURL("/admin/schedule/rules/" + strconv.FormatInt(r.ID, 10) + "/end") }>
+									@csrfField()
+									<button type="submit" class="btn btn-ghost btn-xs" onclick="return confirm('Keluarkan dari jadwal?')">Keluarkan</button>
+								</form>
+							</li>
+						}
+					</ul>
+				</section>
+			}
+		</div>
+		<h2 class="mb-2 text-lg font-semibold">Tambah ke jadwal</h2>
+		<form method="post" action="/admin/schedule/rules" class="card max-w-xl bg-base-100 p-4 shadow-sm" novalidate>
+			@csrfField()
+			@selectField("Peserta", "member_id", members, form.Values["member_id"], form.Errors["member_id"], "Pilih peserta")
+			@selectField("Hari jaga", "day_of_week", days, form.Values["day_of_week"], form.Errors["day_of_week"], "Pilih hari")
+			@field("Mulai berlaku", "effective_from", "date", form.Values["effective_from"], form.Errors["effective_from"], "")
+			<button type="submit" class="btn btn-primary">Tambah</button>
+		</form>
+	}
+}
+
+templ TeamPreview(date domain.Date, team []service.TeamEntry) {
+	<div id="team-preview" class="rounded-box bg-base-100 p-3 text-sm shadow-sm" aria-live="polite">
+		<p class="mb-1 font-medium">Tim { domain.FormatDateID(date) }</p>
+		if len(team) == 0 {
+			<p class="text-base-content/60">Belum ada tim.</p>
+		}
+		<ul class="list-disc pl-5">
+			for _, t := range team {
+				<li>
+					{ t.DisplayName }
+					if t.Source == domain.SourceOverride {
+						<span class="badge badge-warning badge-sm ml-1">perubahan</span>
+					}
+				</li>
+			}
+		</ul>
+	</div>
+}
+
+templ OverridesPage(date domain.Date, team []service.TeamEntry, list []service.OverrideView, members, actions []Option, form Form, flash string) {
+	@AdminLayout("Perubahan Jadwal") {
+		<h1 class="mb-4 text-xl font-semibold">Jadwal</h1>
+		@scheduleTabs("overrides")
+		@flashBlock(flash)
+		<div class="grid gap-6 lg:grid-cols-2">
+			<form method="post" action="/admin/schedule/overrides" class="card bg-base-100 p-4 shadow-sm" novalidate>
+				@csrfField()
+				<div class="mb-4">
+					<label class="mb-1 block text-sm font-medium" for="patrol_date">Tanggal malam</label>
+					<input
+						id="patrol_date"
+						name="patrol_date"
+						type="date"
+						value={ date.String() }
+						class={ "input input-bordered w-full", templ.KV("input-error", form.Errors["patrol_date"] != "") }
+						hx-get="/admin/schedule/overrides/preview"
+						hx-trigger="change"
+						hx-target="#team-preview"
+						hx-swap="outerHTML"
+					/>
+					if form.Errors["patrol_date"] != "" {
+						<p class="mt-1 text-sm text-error">{ form.Errors["patrol_date"] }</p>
+					}
+				</div>
+				@TeamPreview(date, team)
+				<div class="mt-4"></div>
+				@selectField("Aksi", "action", actions, form.Values["action"], form.Errors["action"], "Pilih aksi")
+				@selectField("Peserta", "member_id", members, form.Values["member_id"], form.Errors["member_id"], "Pilih peserta")
+				@selectField("Pengganti (hanya untuk Tukar)", "replacement_member_id", members, form.Values["replacement_member_id"], form.Errors["replacement_member_id"], "—")
+				@field("Catatan", "note", "text", form.Values["note"], form.Errors["note"], "")
+				<button type="submit" class="btn btn-primary">Simpan</button>
+			</form>
+			<section>
+				<h2 class="mb-2 text-lg font-semibold">Perubahan terdekat</h2>
+				if len(list) == 0 {
+					@EmptyState("Belum ada perubahan.")
+				}
+				<ul class="space-y-2">
+					for _, o := range list {
+						<li class="flex items-start justify-between gap-2 rounded-box bg-base-100 p-3 text-sm shadow-sm">
+							<div>
+								<p class="font-medium">{ domain.FormatDateID(o.Date) }</p>
+								<p>
+									switch o.Action {
+										case "ADD":
+											Tambah { o.Member }
+										case "REMOVE":
+											Keluarkan { o.Member }
+										default:
+											Tukar { o.Member } → { o.Replacement }
+									}
+								</p>
+								if o.Note != "" {
+									<p class="text-base-content/60">{ o.Note }</p>
+								}
+							</div>
+							if o.Deletable {
+								<form method="post" action={ templ.SafeURL("/admin/schedule/overrides/" + strconv.FormatInt(o.ID, 10) + "/delete") }>
+									@csrfField()
+									<button type="submit" class="btn btn-ghost btn-xs" onclick="return confirm('Hapus perubahan ini?')">Hapus</button>
+								</form>
+							} else {
+								<span class="badge badge-ghost">Ditutup</span>
+							}
+						</li>
+					}
+				</ul>
+			</section>
+		</div>
+	}
+}
+
+templ SchedulePreviewPage(label, prev, next string, days []service.DayTeam) {
+	@AdminLayout("Pratinjau Jadwal") {
+		<h1 class="mb-4 text-xl font-semibold">Jadwal</h1>
+		@scheduleTabs("preview")
+		<div class="mb-4 flex items-center gap-3">
+			<a class="btn btn-sm" href={ templ.SafeURL("/admin/schedule/preview?month=" + prev) } aria-label="Bulan sebelumnya">‹</a>
+			<span class="font-medium">{ label }</span>
+			<a class="btn btn-sm" href={ templ.SafeURL("/admin/schedule/preview?month=" + next) } aria-label="Bulan berikutnya">›</a>
+		</div>
+		<div class="overflow-x-auto rounded-box bg-base-100 shadow-sm">
+			<table class="table table-sm">
+				<thead>
+					<tr>
+						<th>Tanggal</th>
+						<th>Tim</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, d := range days {
+						<tr>
+							<td class="whitespace-nowrap">{ domain.FormatDateID(d.Date) }</td>
+							<td>
+								if len(d.Team) == 0 {
+									<span class="text-base-content/50">–</span>
+								}
+								{ joinTeam(d.Team) }
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	}
+}

@@ -45,6 +45,8 @@ func adminRoutes(d Deps) http.Handler {
 		r.Post("/settings", h.saveSettings)
 		r.Get("/qr", h.qrPage)
 		r.Get("/qr.png", h.qrPNG)
+		h.memberRoutes(r)
+		h.scheduleRoutes(r)
 	})
 	return r
 }
@@ -121,12 +123,12 @@ func (h adminHandlers) settingsForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	flash := h.Sessions.PopString(r.Context(), sessionFlash)
-	render(w, r, view.SettingsPage(view.SettingsForm{Values: settingsFormValues(s)}, flash))
+	render(w, r, view.SettingsPage(view.Form{Values: settingsFormValues(s)}, flash))
 }
 
-// parseSettingsForm turns the submitted strings into Settings. Fields it cannot
+// parseForm turns the submitted strings into Settings. Fields it cannot
 // parse get an error message; the rest of the validation lives in Settings.Validate.
-func parseSettingsForm(r *http.Request) (service.Settings, map[string]string) {
+func parseForm(r *http.Request) (service.Settings, map[string]string) {
 	errs := map[string]string{}
 	val := func(k string) string { return strings.TrimSpace(r.PostFormValue(k)) }
 	clock := func(k, msg string) domain.Clock {
@@ -167,7 +169,7 @@ func (h adminHandlers) saveSettings(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Permintaan tidak valid.", http.StatusBadRequest)
 		return
 	}
-	s, errs := parseSettingsForm(r)
+	s, errs := parseForm(r)
 	if len(errs) == 0 { // validating half-parsed values would only add misleading errors
 		err := h.Settings.Save(r.Context(), s)
 		var ve service.ValidationErrors
@@ -190,7 +192,7 @@ func (h adminHandlers) saveSettings(w http.ResponseWriter, r *http.Request) {
 		values[k] = strings.TrimSpace(r.PostFormValue(k))
 	}
 	w.WriteHeader(http.StatusUnprocessableEntity)
-	render(w, r, view.SettingsPage(view.SettingsForm{Values: values, Errors: errs}, ""))
+	render(w, r, view.SettingsPage(view.Form{Values: values, Errors: errs}, ""))
 }
 
 // QR

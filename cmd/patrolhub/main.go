@@ -47,7 +47,7 @@ func main() {
 		if cfg.AppEnv != "development" {
 			err = errors.New("seed-demo only runs when APP_ENV=development")
 		} else {
-			err = errors.New("seed-demo: not implemented yet (step 6.4)")
+			err = seedDemo(cfg)
 		}
 	default:
 		usage()
@@ -110,6 +110,8 @@ func serve(cfg config.Config) error {
 		Sessions: httpx.NewSessionManager(pool, cfg),
 		Settings: service.NewSettingsService(pool),
 		Admins:   service.NewAdminService(pool),
+		Members:  service.NewMemberService(pool),
+		Schedule: service.NewScheduleService(pool),
 		Static:   static,
 	})
 	if err != nil {
