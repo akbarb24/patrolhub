@@ -13,7 +13,7 @@ Two docs drive the work (both Indonesian, both in the repo root):
 
 If they conflict, the PRD wins: note the difference and ask the product owner. When unsure about a business rule, stop and ask rather than guess.
 
-**Progress:** Steps 1 (setup) and 2 (schema + sqlc queries + `service.WithTx`) are done and committed. Next is Step 3 (`internal/domain`). `serve` currently only serves `/healthz` and `/static/*`; `create-admin` and `seed-demo` are stubs that return "not implemented".
+**Progress:** Steps 1 (setup), 2 (schema + sqlc queries + `service.WithTx`) and 3 (`internal/domain`, ~99% covered) are done and committed. Next is Step 4 (router, layouts, settings service). `serve` currently only serves `/healthz` and `/static/*`; `create-admin` and `seed-demo` are stubs that return "not implemented".
 
 ## Working rules
 
