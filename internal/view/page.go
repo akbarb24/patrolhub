@@ -87,6 +87,12 @@ func ClockText(t time.Time) string { return t.In(config.Jakarta).Format("15.04")
 
 func clockDotted(c domain.Clock) string { return fmt.Sprintf("%02d.%02d", c.Hour, c.Min) }
 
+// countdown renders a duration as "HH:MM:SS" (negative counts as zero).
+func countdown(d time.Duration) string {
+	secs := max(int64(d.Seconds()), 0)
+	return fmt.Sprintf("%02d:%02d:%02d", secs/3600, secs/60%60, secs%60)
+}
+
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
 
 // ShortStamp renders "7 Okt 2026 22.41" in Jakarta.

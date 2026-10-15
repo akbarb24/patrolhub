@@ -70,7 +70,8 @@ func TestTonightPageClosedAndOpen(t *testing.T) {
 
 	a.now = wibTime(2026, 10, 7, 21, 0)
 	body := b.mustGet("/patrol/tonight")
-	contains(t, body, "Laporan Ronda RT 02", "Tanggal: Rabu, 7 Oktober 2026", "Laporan dibuka pukul 22.00", "Anton (A-1)", "C-3")
+	contains(t, body, "Laporan Ronda RT 02", "Tanggal: Rabu, 7 Oktober 2026", "Laporan dibuka pukul 22.00", "Anton (A-1)", "C-3",
+		`id="lock-modal"`, `aria-modal="true"`, `data-countdown="3600"`, ">01:00:00<", "lock.js", "inert")
 	notContains(t, body, `type="checkbox"`, "photo.js")
 	if resp, _ := b.hxPost("/patrol/tonight/situation", url.Values{"note": {"x"}}); resp.StatusCode != http.StatusConflict ||
 		resp.Header.Get("HX-Redirect") != "/patrol/tonight" {
@@ -81,6 +82,7 @@ func TestTonightPageClosedAndOpen(t *testing.T) {
 	body = b.mustGet("/patrol/tonight")
 	contains(t, body, "Tanggal: Rabu, 7 Oktober 2026", `type="checkbox"`, `hx-post="/patrol/tonight/attendance/`, "photo.js", "patrol.js",
 		`capture="environment"`, `accept="image/*"`, "Ajukan Hujan", "0 dari minimal 3 foto", `maxlength="1000"`, "Tambah anggota pengganti", "Dewi (D-4)")
+	notContains(t, body, "lock-modal", "lock.js")
 	if n := strings.Count(body, `type="checkbox"`); n != 3 {
 		t.Errorf("checkboxes: %d", n)
 	}
@@ -194,6 +196,18 @@ func TestRainRequestAndWalkIn(t *testing.T) {
 	body := b.mustGet("/patrol/tonight")
 	contains(t, body, "Hujan diajukan, menunggu konfirmasi pengurus.")
 	notContains(t, body, "Ajukan Hujan")
+}
+
+func TestLockedNightShowsModal(t *testing.T) {
+	a, b := patrolApp(t)
+	b.hxPost("/patrol/tonight/rain", url.Values{})
+	a.loggedIn().mustPost("/admin/nights", "/admin/nights/2026-10-07/rain/confirm", url.Values{}, http.StatusSeeOther)
+
+	// 22:30 on a rained-out night: the next window opens Thursday 22:00, 23.5 hours away.
+	body := b.mustGet("/patrol/tonight")
+	contains(t, body, `id="lock-modal"`, "Laporan malam ini sudah ditutup.", "Laporan berikutnya dibuka pukul 22.00",
+		`data-countdown="84600"`, ">23:30:00<", "Anton (A-1)")
+	notContains(t, body, "photo.js", "Ajukan Hujan")
 }
 
 func TestPatrolRateLimit(t *testing.T) {

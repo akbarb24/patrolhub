@@ -175,3 +175,8 @@
 [x-cloak] {
   display: none !important;
 }
+
+/* The report page's lock modal covers the viewport; keep the page behind it still. */
+html:has(#lock-modal) {
+  overflow: hidden;
+}

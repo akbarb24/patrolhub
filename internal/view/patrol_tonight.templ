@@ -17,35 +17,57 @@ templ TonightPage(v service.TonightView) {
 			<svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="14" height="13" rx="3"></rect><path d="M3 8h14M7 2v4M13 2v4"></path></svg>
 			Tanggal: { domain.FormatDateID(v.NightDate) }
 		</p>
-		switch {
-			case !v.Open:
-				@tonightClosed(v)
-			case v.Locked:
-				@FlashMessage("info", "Laporan malam ini sudah ditutup.")
+		if v.Open && !v.Locked {
+			@tonightOpen(v)
+		} else {
+			// The page behind the lock modal stays visible but cannot be reached.
+			<div inert class="pointer-events-none select-none blur-[2px]">
 				@card("Tim Ronda", "team-title") {
-					@TeamSection(v)
+					if !v.Open {
+						@upcomingTeam(v)
+					} else {
+						@TeamSection(v)
+					}
 				}
-			default:
-				@tonightOpen(v)
+			</div>
+			@lockModal(v)
 		}
 	}
 }
 
-templ tonightClosed(v service.TonightView) {
-	<div class="oat mb-6 p-7">
-		<p class="text-xl font-semibold leading-snug">Laporan dibuka pukul { clockDotted(v.WindowOpen) }</p>
-		<p class="mt-1 text-base-content/70">Kembali ke halaman ini saat jam ronda untuk mengisi kehadiran.</p>
-	</div>
-	@card("Tim Ronda", "team-title") {
-		if len(v.Team) == 0 {
-			@EmptyState("Belum ada tim untuk malam ini.")
-		}
-		<ul class="divide-y divide-fog">
-			for _, r := range v.Team {
-				<li class="py-3">{ r.DisplayName }</li>
-			}
-		</ul>
+templ upcomingTeam(v service.TonightView) {
+	if len(v.Team) == 0 {
+		@EmptyState("Belum ada tim untuk malam ini.")
 	}
+	<ul class="divide-y divide-fog">
+		for _, r := range v.Team {
+			<li class="py-3">{ r.DisplayName }</li>
+		}
+	</ul>
+}
+
+// lockModal covers the report page while it cannot be filled in. It has no close
+// button: the page reloads itself when the window opens (lock.js).
+templ lockModal(v service.TonightView) {
+	<div id="lock-modal" class="fixed inset-0 z-20 flex items-center justify-center bg-ink/60 p-4" role="dialog" aria-modal="true" aria-labelledby="lock-title" aria-describedby="lock-desc">
+		<div class="sticker w-full max-w-[400px] p-7 text-center">
+			if v.Locked {
+				<p class="eyebrow">Laporan ditutup</p>
+				<h2 id="lock-title" class="mt-2 text-xl font-semibold leading-snug">Laporan malam ini sudah ditutup.</h2>
+				<p id="lock-desc" class="mt-1 text-base-content/70">Laporan berikutnya dibuka pukul { clockDotted(v.WindowOpen) }.</p>
+			} else {
+				<p class="eyebrow">Belum jam ronda</p>
+				<h2 id="lock-title" class="mt-2 text-xl font-semibold leading-snug">Laporan dibuka pukul { clockDotted(v.WindowOpen) }</h2>
+				<p id="lock-desc" class="mt-1 text-base-content/70">Kembali ke halaman ini saat jam ronda untuk mengisi kehadiran.</p>
+			}
+			<div class="oat mt-6 px-4 py-5">
+				<p class="text-sm font-semibold">Dibuka dalam</p>
+				<p class="display mt-1 text-5xl tabular-nums" role="timer" data-countdown={ itoa(int64(v.UntilOpen.Seconds())) }>{ countdown(v.UntilOpen) }</p>
+			</div>
+			<p class="mt-4 text-sm text-base-content/70">Halaman ini terbuka otomatis saat jam ronda dimulai.</p>
+		</div>
+	</div>
+	<script src="/static/js/lock.js" defer></script>
 }
 
 templ tonightOpen(v service.TonightView) {

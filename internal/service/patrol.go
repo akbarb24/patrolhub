@@ -60,12 +60,16 @@ type Candidate struct {
 
 // TonightView is everything the report page shows.
 type TonightView struct {
-	Open       bool // inside the report window
-	Locked     bool // open window, but nothing can be edited (rain-out or already closed)
-	NightDate  domain.Date
-	OpensAt    time.Time
-	RTName     string
-	WindowOpen domain.Clock
+	Open      bool // inside the report window
+	Locked    bool // open window, but nothing can be edited (rain-out or already closed)
+	NightDate domain.Date
+	OpensAt   time.Time
+	// NextOpensAt is when reporting is next possible while the page is closed or
+	// locked; UntilOpen is the time left from now (drives the countdown).
+	NextOpensAt time.Time
+	UntilOpen   time.Duration
+	RTName      string
+	WindowOpen  domain.Clock
 
 	Team          []TeamRow
 	Situation     string
@@ -112,6 +116,7 @@ func (s *PatrolService) Tonight(ctx context.Context, now time.Time) (TonightView
 	}
 
 	if !w.Open {
+		v.NextOpensAt, v.UntilOpen = w.OpensAt, w.OpensAt.Sub(now)
 		entries, err := teamEntries(ctx, db.New(s.pool), w.NightDate)
 		if err != nil {
 			return v, err
@@ -128,7 +133,10 @@ func (s *PatrolService) Tonight(ctx context.Context, now time.Time) (TonightView
 			return err
 		}
 		v.Locked = nightLocked(night)
-		if !v.Locked {
+		if v.Locked {
+			v.NextOpensAt = w.NightDate.AddDays(1).At(set.WindowOpen.Hour, set.WindowOpen.Min)
+			v.UntilOpen = v.NextOpensAt.Sub(now)
+		} else {
 			if err := syncTeam(ctx, q, night); err != nil {
 				return err
 			}
