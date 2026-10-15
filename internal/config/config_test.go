@@ -37,3 +37,14 @@ func TestBaseURLMustBeAbsolute(t *testing.T) {
 		t.Fatalf("got %q %v", c.Origin(), err)
 	}
 }
+
+func TestLoadWindowClocks(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x")
+	t.Setenv("BASE_URL", "http://localhost:8080")
+	t.Setenv("WINDOW_OPEN", "21:30")
+	t.Setenv("WINDOW_CLOSE", "05:00")
+	c, err := Load()
+	if err != nil || c.WindowOpen != "21:30" || c.WindowClose != "05:00" {
+		t.Fatalf("got %+v %v", c, err)
+	}
+}

@@ -188,6 +188,29 @@ func (s *SettingsService) Load(ctx context.Context) (Settings, error) {
 	return settingsFromMap(m)
 }
 
+// SeedWindow applies configured default window times (from the environment).
+// It only acts while go_live_date is unset, so once the RT is live the values
+// edited by an admin are never overwritten by a restart. nil keeps the stored value.
+func (s *SettingsService) SeedWindow(ctx context.Context, open, closeAt *domain.Clock) error {
+	if open == nil && closeAt == nil {
+		return nil
+	}
+	cur, err := s.Load(ctx)
+	if err != nil {
+		return err
+	}
+	if cur.GoLiveDate != nil {
+		return nil
+	}
+	if open != nil {
+		cur.WindowOpen = *open
+	}
+	if closeAt != nil {
+		cur.WindowClose = *closeAt
+	}
+	return s.Save(ctx, cur)
+}
+
 // Save validates and stores all settings atomically. Invalid input yields ValidationErrors.
 func (s *SettingsService) Save(ctx context.Context, in Settings) error {
 	if err := in.Validate(); err != nil {

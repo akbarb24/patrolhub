@@ -15,6 +15,12 @@ type Config struct {
 	DatabaseURL string
 	PhotoDir    string
 	TrustProxy  bool
+
+	// WindowOpen and WindowClose are optional defaults for the report window,
+	// applied once before go-live (see service.SettingsService.SeedWindow).
+	// Raw HH:MM strings; parsed in main because domain already imports config.
+	WindowOpen  string
+	WindowClose string
 }
 
 func (c Config) IsProduction() bool { return c.AppEnv == "production" }
@@ -38,6 +44,8 @@ func Load() (Config, error) {
 	if u, err := url.Parse(c.BaseURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return c, fmt.Errorf("BASE_URL must be an absolute http(s) URL, got %q", c.BaseURL)
 	}
+	c.WindowOpen = os.Getenv("WINDOW_OPEN")
+	c.WindowClose = os.Getenv("WINDOW_CLOSE")
 	return c, nil
 }
 

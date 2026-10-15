@@ -18,6 +18,7 @@ import (
 	"github.com/pressly/goose/v3"
 
 	"github.com/akbarbinaji/patrolhub/internal/config"
+	"github.com/akbarbinaji/patrolhub/internal/domain"
 	"github.com/akbarbinaji/patrolhub/internal/httpx"
 	"github.com/akbarbinaji/patrolhub/internal/job"
 	"github.com/akbarbinaji/patrolhub/internal/service"
@@ -88,6 +89,18 @@ func migrate(cfg config.Config) error {
 	return goose.Up(conn, ".")
 }
 
+// optionalClock parses an optional HH:MM environment value; empty means unset.
+func optionalClock(name, v string) (*domain.Clock, error) {
+	if v == "" {
+		return nil, nil
+	}
+	c, err := domain.ParseClock(v)
+	if err != nil {
+		return nil, fmt.Errorf("%s must be HH:MM, got %q", name, v)
+	}
+	return &c, nil
+}
+
 func serve(cfg config.Config) error {
 	if err := migrate(cfg); err != nil {
 		return fmt.Errorf("migrate: %w", err)
@@ -108,6 +121,17 @@ func serve(cfg config.Config) error {
 	defer pool.Close()
 
 	settings := service.NewSettingsService(pool)
+	winOpen, err := optionalClock("WINDOW_OPEN", cfg.WindowOpen)
+	if err != nil {
+		return err
+	}
+	winClose, err := optionalClock("WINDOW_CLOSE", cfg.WindowClose)
+	if err != nil {
+		return err
+	}
+	if err := settings.SeedWindow(ctx, winOpen, winClose); err != nil {
+		return fmt.Errorf("seed window from WINDOW_OPEN/WINDOW_CLOSE: %w", err)
+	}
 	photos := storage.LocalStore{Dir: cfg.PhotoDir}
 	handler, err := httpx.NewRouter(httpx.Deps{
 		Config:   cfg,
