@@ -1,37 +1,37 @@
 package view
 
 templ field(label, name, typ, value, errMsg, hint string) {
-	<div class="mb-4">
-		<label class="mb-1 block text-sm font-medium" for={ name }>{ label }</label>
+	<div class="mb-5">
+		<label class="mb-2 block px-2 text-sm font-semibold" for={ name }>{ label }</label>
 		<input
 			id={ name }
 			name={ name }
 			type={ typ }
 			value={ value }
-			class={ "input input-bordered w-full", templ.KV("input-error", errMsg != "") }
+			class={ "input w-full", templ.KV("input-error", errMsg != "") }
 			if errMsg != "" {
 				aria-invalid="true"
 				aria-describedby={ name + "-error" }
 			}
 		/>
 		if hint != "" {
-			<p class="mt-1 text-xs text-base-content/60">{ hint }</p>
+			<p class="mt-2 px-2 text-sm text-base-content/70">{ hint }</p>
 		}
 		if errMsg != "" {
-			<p id={ name + "-error" } class="mt-1 text-sm text-error">{ errMsg }</p>
+			<p id={ name + "-error" } class="mt-2 px-2 text-sm font-semibold text-error">{ errMsg }</p>
 		}
 	</div>
 }
 
 templ SettingsPage(form Form, flash string) {
 	@AdminLayout("Pengaturan") {
-		<h1 class="mb-4 text-xl font-semibold">Pengaturan</h1>
+		@pageTitle("Admin", "Pengaturan")
 		if flash != "" {
-			<div class="mb-4">
+			<div class="mb-5">
 				@FlashMessage("success", flash)
 			</div>
 		}
-		<form method="post" action="/admin/settings" class="card max-w-xl bg-base-100 p-4 shadow-sm" novalidate>
+		<form method="post" action="/admin/settings" class="sticker max-w-xl p-7" novalidate>
 			<input type="hidden" name="csrf_token" value={ Page(ctx).CSRFToken }/>
 			@field("Nama RT", "rt_name", "text", form.Values["rt_name"], form.Errors["rt_name"], "")
 			@field("Jam buka laporan", "window_open", "time", form.Values["window_open"], form.Errors["window_open"], "Mis. 22:00. Harus lebih besar dari jam tutup (jendela melewati tengah malam).")

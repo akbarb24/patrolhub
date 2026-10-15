@@ -53,11 +53,11 @@ func nightStatusClass(s domain.NightStatus) string {
 	case domain.NightReported:
 		return "badge-primary"
 	case domain.NightNoReport:
-		return "badge-error"
+		return "badge-neutral"
 	case domain.NightRainRequested:
-		return "badge-warning"
+		return "badge-warning border-ink"
 	case domain.NightRainedOut:
-		return "badge-info"
+		return "badge-outline"
 	}
 	return "badge-ghost"
 }

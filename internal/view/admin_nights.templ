@@ -9,15 +9,15 @@ import (
 
 templ NightsPage(cur, label, prev, next string, onlyReview bool, pending, rows []service.NightRow, flash string) {
 	@AdminLayout("Malam") {
-		<h1 class="mb-4 text-xl font-semibold">Malam</h1>
+		@pageTitle("Admin", "Malam")
 		@flashBlock(flash)
 		if len(pending) > 0 {
-			<section class="mb-6" aria-labelledby="pending-title">
-				<h2 id="pending-title" class="mb-2 font-semibold">Menunggu konfirmasi hujan</h2>
-				<ul class="space-y-2">
+			<section class="mb-10" aria-labelledby="pending-title">
+				<h2 id="pending-title" class="mb-4 text-2xl font-semibold">Menunggu konfirmasi hujan</h2>
+				<ul class="space-y-3">
 					for _, n := range pending {
-						<li class="flex flex-wrap items-center justify-between gap-2 rounded-box border border-warning bg-base-100 p-3">
-							<a class="font-medium underline" href={ templ.SafeURL("/admin/nights/" + n.Date.String()) }>{ domain.FormatDateID(n.Date) }</a>
+						<li class="flex flex-wrap items-center justify-between gap-2 oat p-5">
+							<a class="text-lg font-semibold underline underline-offset-4" href={ templ.SafeURL("/admin/nights/" + n.Date.String()) }>{ domain.FormatDateID(n.Date) }</a>
 							<div class="flex gap-2">
 								<form method="post" action={ templ.SafeURL("/admin/nights/" + n.Date.String() + "/rain/confirm") }>
 									@csrfField()
@@ -33,14 +33,14 @@ templ NightsPage(cur, label, prev, next string, onlyReview bool, pending, rows [
 				</ul>
 			</section>
 		}
-		<div class="mb-4 flex flex-wrap items-center gap-3">
-			<a class="btn btn-sm" href={ templ.SafeURL(monthLink(prev, onlyReview)) } aria-label="Bulan sebelumnya">‹</a>
-			<span class="font-medium">{ label }</span>
-			<a class="btn btn-sm" href={ templ.SafeURL(monthLink(next, onlyReview)) } aria-label="Bulan berikutnya">›</a>
-			<a class="btn btn-sm ml-auto" href={ templ.SafeURL("/admin/export/" + cur[:4] + "/" + cur[5:] + ".csv") }>Ekspor CSV</a>
-			<a class={ "btn btn-sm", templ.KV("btn-primary", onlyReview) } href={ templ.SafeURL(reviewToggle(cur, onlyReview)) }>Hanya yang perlu ditinjau</a>
+		<div class="mb-6 flex flex-wrap items-center gap-3">
+			@monthPager(label, monthLink(prev, onlyReview), monthLink(next, onlyReview))
+			<div class="flex flex-wrap gap-2 sm:ml-auto">
+				@filterPill(reviewToggle(cur, onlyReview), "Hanya yang perlu ditinjau", onlyReview)
+				<a class="btn btn-outline" href={ templ.SafeURL("/admin/export/" + cur[:4] + "/" + cur[5:] + ".csv") }>Ekspor CSV</a>
+			</div>
 		</div>
-		<div class="overflow-x-auto rounded-box bg-base-100 shadow-sm">
+		<div class="sticker overflow-x-auto p-2">
 			<table class="table">
 				<thead>
 					<tr>
@@ -54,13 +54,13 @@ templ NightsPage(cur, label, prev, next string, onlyReview bool, pending, rows [
 				<tbody>
 					for _, n := range rows {
 						<tr>
-							<td><a class="underline" href={ templ.SafeURL("/admin/nights/" + n.Date.String()) }>{ domain.FormatDateID(n.Date) }</a></td>
+							<td><a class="font-semibold underline underline-offset-4" href={ templ.SafeURL("/admin/nights/" + n.Date.String()) }>{ domain.FormatDateID(n.Date) }</a></td>
 							<td>@StatusBadge(n.Status)</td>
 							<td>{ fmt.Sprintf("%d/%d", n.Present, n.Total) }</td>
 							<td>{ fmt.Sprint(n.Photos) }</td>
 							<td>
 								if n.NeedsReview {
-									<span class="badge badge-warning">Perlu ditinjau</span>
+									<span class="badge badge-warning border-ink">Perlu ditinjau</span>
 								}
 							</td>
 						</tr>
@@ -91,26 +91,29 @@ func reviewToggle(month string, onlyReview bool) string {
 
 templ NightDetailPage(d service.NightDetail, form Form, flash string) {
 	@AdminLayout("Malam " + d.Date.String()) {
-		<p class="mb-1 text-sm"><a class="underline" href="/admin/nights">‹ Semua malam</a></p>
-		<h1 class="mb-1 text-xl font-semibold">{ domain.FormatDateID(d.Date) }</h1>
-		<p class="mb-4 flex flex-wrap items-center gap-2">
+		<p class="mb-6"><a class="btn btn-outline btn-sm" href="/admin/nights">‹ Semua malam</a></p>
+		<h1 class="mb-1">
+			<span class="eyebrow block">Malam</span>
+			<span class="display mt-2 block break-words text-5xl">{ domain.FormatDateID(d.Date) }</span>
+		</h1>
+		<p class="mb-8 mt-4 flex flex-wrap items-center gap-2">
 			@StatusBadge(d.Status)
 			if d.NeedsReview {
-				<span class="badge badge-warning">Perlu ditinjau</span>
+				<span class="badge badge-warning border-ink">Perlu ditinjau</span>
 			}
 		</p>
 		@flashBlock(flash)
 		if form.Errors["_"] != "" {
-			<div class="mb-4">
+			<div class="mb-5">
 				@FlashMessage("error", form.Errors["_"])
 			</div>
 		}
-		<dl class="mb-4 grid max-w-xl grid-cols-2 gap-x-4 gap-y-1 rounded-box bg-base-100 p-4 text-sm shadow-sm">
-			<dt class="text-base-content/60">Laporan pertama</dt>
+		<dl class="sticker mb-6 grid max-w-xl grid-cols-2 gap-x-4 gap-y-2 p-7">
+			<dt class="text-base-content/70">Laporan pertama</dt>
 			<dd>{ stampPtr(d.FirstReportedAt) }</dd>
-			<dt class="text-base-content/60">Ditutup</dt>
+			<dt class="text-base-content/70">Ditutup</dt>
 			<dd>{ stampPtr(d.ClosedAt) }</dd>
-			<dt class="text-base-content/60">Tarif denda</dt>
+			<dt class="text-base-content/70">Tarif denda</dt>
 			<dd>
 				if d.FineRate != nil {
 					{ rupiah(*d.FineRate) }
@@ -118,12 +121,12 @@ templ NightDetailPage(d service.NightDetail, form Form, flash string) {
 					–
 				}
 			</dd>
-			<dt class="text-base-content/60">Total denda</dt>
+			<dt class="text-base-content/70">Total denda</dt>
 			<dd>{ rupiah(d.TotalFine) }</dd>
-			<dt class="text-base-content/60">Foto</dt>
+			<dt class="text-base-content/70">Foto</dt>
 			<dd>{ fmt.Sprintf("%d (minimal %d)", len(d.Photos), d.MinPhotos) }</dd>
 		</dl>
-		<div class="mb-6 flex flex-wrap gap-2">
+		<div class="mb-10 flex flex-wrap gap-2">
 			if d.Status == domain.NightRainRequested {
 				<form method="post" action={ templ.SafeURL("/admin/nights/" + d.Date.String() + "/rain/confirm") }>
 					@csrfField()
@@ -142,8 +145,8 @@ templ NightDetailPage(d service.NightDetail, form Form, flash string) {
 			}
 		</div>
 
-		<h2 class="mb-2 font-semibold">Anggota</h2>
-		<div class="mb-6 overflow-x-auto rounded-box bg-base-100 shadow-sm">
+		<h2 class="mb-4 text-2xl font-semibold">Anggota</h2>
+		<div class="sticker mb-10 overflow-x-auto p-2">
 			<table class="table">
 				<thead>
 					<tr>
@@ -159,7 +162,7 @@ templ NightDetailPage(d service.NightDetail, form Form, flash string) {
 							<td>
 								{ m.DisplayName }
 								if m.Source != domain.SourceScheduled {
-									<span class="badge badge-ghost badge-sm ml-1">{ sourceLabel(m.Source) }</span>
+									<span class="badge badge-warning badge-sm ml-1">{ sourceLabel(m.Source) }</span>
 								}
 							</td>
 							<td>
@@ -172,21 +175,21 @@ templ NightDetailPage(d service.NightDetail, form Form, flash string) {
 							<td class="min-w-56">
 								if d.ClosedAt != nil && d.Status != domain.NightRainedOut {
 									<details open?={ form.Values["member_id"] == itoa(m.MemberID) }>
-										<summary class="btn btn-ghost btn-xs">Koreksi</summary>
+										<summary class="btn btn-outline btn-xs">Koreksi</summary>
 										<form method="post" action={ templ.SafeURL("/admin/nights/" + d.Date.String() + "/attendance/" + itoa(m.MemberID)) } class="mt-2 space-y-2" novalidate>
 											@csrfField()
-											<select name="status" class="select select-bordered select-sm w-full" aria-label="Status baru">
+											<select name="status" class="select select-sm w-full" aria-label="Status baru">
 												<option value="PRESENT" selected?={ m.Status == domain.Present }>Hadir</option>
 												<option value="ABSENT" selected?={ m.Status != domain.Present }>Tidak hadir</option>
 											</select>
 											if form.Values["member_id"] == itoa(m.MemberID) && form.Errors["status"] != "" {
 												<p class="text-xs text-error">{ form.Errors["status"] }</p>
 											}
-											<input name="reason" type="text" placeholder="Alasan (wajib)" aria-label="Alasan koreksi" class="input input-bordered input-sm w-full" value={ reasonValue(form, m.MemberID) }/>
+											<input name="reason" type="text" placeholder="Alasan (wajib)" aria-label="Alasan koreksi" class="input input-sm w-full" value={ reasonValue(form, m.MemberID) }/>
 											if form.Values["member_id"] == itoa(m.MemberID) && form.Errors["reason"] != "" {
 												<p class="text-xs text-error">{ form.Errors["reason"] }</p>
 											}
-											<button type="submit" class="btn btn-primary btn-xs">Simpan koreksi</button>
+											<button type="submit" class="btn btn-neutral btn-sm">Simpan koreksi</button>
 										</form>
 									</details>
 								}
@@ -200,26 +203,26 @@ templ NightDetailPage(d service.NightDetail, form Form, flash string) {
 			}
 		</div>
 
-		<h2 class="mb-2 font-semibold">Situasi</h2>
-		<p class="mb-6 whitespace-pre-line rounded-box bg-base-100 p-4 shadow-sm">
+		<h2 class="mb-4 text-2xl font-semibold">Situasi</h2>
+		<p class="sticker mb-10 whitespace-pre-line p-7">
 			if d.Situation == "" {
-				<span class="text-base-content/60">Tidak ada catatan.</span>
+				<span class="text-base-content/70">Tidak ada catatan.</span>
 			} else {
 				{ d.Situation }
 			}
 		</p>
 
-		<h2 class="mb-2 font-semibold">Foto</h2>
+		<h2 class="mb-4 text-2xl font-semibold">Foto</h2>
 		if len(d.Photos) == 0 {
-			<p class="mb-6 text-sm text-base-content/60">Belum ada foto.</p>
+			<p class="mb-6 text-base-content/70">Belum ada foto.</p>
 		}
-		<ul class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+		<ul class="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
 			for _, p := range d.Photos {
-				<li class="rounded-box bg-base-100 p-2 shadow-sm">
+				<li class="sticker p-2">
 					<a href={ templ.SafeURL("/admin/photos/" + itoa(p.ID)) } target="_blank" rel="noopener">
-						<img src={ "/admin/photos/" + itoa(p.ID) } alt={ "Foto ronda pukul " + ClockText(p.TakenAt) } loading="lazy" class="aspect-square w-full rounded object-cover"/>
+						<img src={ "/admin/photos/" + itoa(p.ID) } alt={ "Foto ronda pukul " + ClockText(p.TakenAt) } loading="lazy" class="aspect-square w-full rounded-2xl object-cover"/>
 					</a>
-					<p class="mt-1 text-xs">
+					<p class="mt-2 px-2 pb-1 text-sm">
 						{ ShortStamp(p.TakenAt) }
 						if mapsURL(p.Latitude, p.Longitude) != "" {
 							· <a class="underline" href={ templ.SafeURL(mapsURL(p.Latitude, p.Longitude)) } target="_blank" rel="noopener">Peta</a>
@@ -229,14 +232,14 @@ templ NightDetailPage(d service.NightDetail, form Form, flash string) {
 			}
 		</ul>
 
-		<h2 class="mb-2 font-semibold">Riwayat</h2>
+		<h2 class="mb-4 text-2xl font-semibold">Riwayat</h2>
 		if len(d.Audit) == 0 {
-			<p class="text-sm text-base-content/60">Belum ada riwayat.</p>
+			<p class="text-base-content/70">Belum ada riwayat.</p>
 		}
-		<ol class="space-y-1 text-sm">
+		<ol class="space-y-2 text-sm">
 			for _, a := range d.Audit {
-				<li class="rounded-box bg-base-100 px-3 py-2 shadow-sm">
-					<span class="text-base-content/60">{ ShortStamp(a.At) }</span>
+				<li class="rounded-2xl bg-base-100 px-4 py-3">
+					<span class="text-base-content/70">{ ShortStamp(a.At) }</span>
 					· <strong>{ auditLabel(a.Action) }</strong>
 					· { a.Actor }
 					if a.IP != "" {
@@ -246,7 +249,7 @@ templ NightDetailPage(d service.NightDetail, form Form, flash string) {
 						<span class="block">Alasan: { a.Reason }</span>
 					}
 					if a.Detail != "" {
-						<code class="block break-all text-xs text-base-content/60">{ a.Detail }</code>
+						<code class="block break-all text-xs text-base-content/70">{ a.Detail }</code>
 					}
 				</li>
 			}

@@ -1,6 +1,176 @@
 @import "tailwindcss";
-@plugin "./daisyui.mjs";
+@plugin "./daisyui.mjs" {
+  themes: false;
+}
 @source "../../internal/view";
+
+/* Design tokens from DESIGN.md: warm neutral canvas, white sticker cards with a
+   black outline instead of shadows, pill controls, one blue accent for the
+   primary action. */
+@plugin "./daisyui-theme.mjs" {
+  name: "patrolhub";
+  default: true;
+  color-scheme: light;
+  --color-base-100: #ffffff;
+  --color-base-200: #e5e7eb;
+  --color-base-300: #d4d4d8;
+  --color-base-content: #202020;
+  --color-primary: #aac9f7;
+  --color-primary-content: #202020;
+  --color-secondary: #e9dfd2;
+  --color-secondary-content: #202020;
+  --color-accent: #72a4f2;
+  --color-accent-content: #202020;
+  --color-neutral: #202020;
+  --color-neutral-content: #ffffff;
+  --color-info: #aac9f7;
+  --color-info-content: #202020;
+  --color-success: #aac9f7;
+  --color-success-content: #202020;
+  --color-warning: #e9dfd2;
+  --color-warning-content: #202020;
+  --color-error: #b42318;
+  --color-error-content: #ffffff;
+  --radius-selector: 9999px;
+  --radius-field: 9999px;
+  --radius-box: 1.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 2px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@font-face {
+  font-family: "DM Sans";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("../fonts/dm-sans-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Bowlby One";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/bowlby-one-latin.woff2") format("woff2");
+}
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bowlby One", "DM Sans", ui-sans-serif, sans-serif;
+  --color-oat: #e9dfd2;
+  --color-fog: #e5e7eb;
+  --color-ink: #202020;
+  --color-kofi: #aac9f7;
+  --color-cobalt: #72a4f2;
+}
+
+@layer components {
+  /* Sticker card: white surface, 2px black outline, no shadow. */
+  .sticker {
+    border: 2px solid #000;
+    border-radius: var(--radius-box);
+    background: var(--color-base-100);
+  }
+
+  /* Oat feature block: warm surface without an outline. */
+  .oat {
+    border-radius: var(--radius-box);
+    background: var(--color-oat);
+  }
+
+  /* Display headline; only used at 48px and above. */
+  .display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: 0;
+  }
+
+  .eyebrow {
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.43;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+  }
+}
+
+/* daisyUI adjustments to match the design language. */
+.btn {
+  font-weight: 600;
+  box-shadow: none;
+}
+.btn-primary:hover,
+.btn-primary:active {
+  --btn-bg: var(--color-cobalt);
+  --btn-border: var(--color-cobalt);
+}
+.btn-outline {
+  --btn-border: var(--color-ink);
+}
+.input,
+.select {
+  border-color: var(--color-ink);
+  box-shadow: none;
+}
+.input:focus,
+.input:focus-within,
+.select:focus,
+.select:focus-within,
+.textarea:focus {
+  outline: 2px solid var(--color-kofi);
+  outline-offset: 2px;
+  border-color: var(--color-ink);
+}
+.input,
+.select {
+  padding-inline: 1.25rem;
+}
+/* A pill textarea would clip its text; it gets the small-element radius. */
+.textarea {
+  border-color: var(--color-ink);
+  border-radius: 1rem;
+  box-shadow: none;
+  padding: 0.75rem 1.25rem;
+}
+.alert {
+  border: 2px solid var(--color-ink);
+  border-radius: 1rem;
+  box-shadow: none;
+}
+.badge {
+  font-weight: 600;
+}
+.table :where(thead tr, tbody tr:not(:last-child)) {
+  border-bottom: 1px solid var(--color-fog);
+}
+.checkbox {
+  border-color: var(--color-ink);
+}
+.checkbox:checked {
+  background-color: var(--color-kofi);
+  color: var(--color-ink);
+}
+.tabs-box {
+  background: var(--color-base-100);
+  border: 2px solid #000;
+  border-radius: 9999px;
+  box-shadow: none;
+  padding: 0.25rem;
+}
+.tabs-box .tab {
+  border-radius: 9999px;
+  font-weight: 600;
+}
+.tabs-box .tab-active,
+.tabs-box .tab[aria-current="page"] {
+  background: var(--color-ink);
+  color: #fff;
+}
 
 [x-cloak] {
   display: none !important;

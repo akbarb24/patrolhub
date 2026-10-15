@@ -7,15 +7,17 @@ import "github.com/akbarbinaji/patrolhub/internal/domain"
 templ StatusDot(status domain.AttendanceStatus, label string) {
 	switch status {
 		case domain.Present:
-			<span role="img" aria-label={ label } class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#1E4FB8] text-white">
-				<svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10l4 4 8-8"></path></svg>
+			<span role="img" aria-label={ label } class="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-black bg-kofi text-ink">
+				<svg viewBox="0 0 20 20" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10l4 4 8-8"></path></svg>
 			</span>
 		case domain.Absent:
-			<span role="img" aria-label={ label } class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#C2410C] text-white">
-				<svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"></path></svg>
+			<span role="img" aria-label={ label } class="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-black bg-ink text-white">
+				<svg viewBox="0 0 20 20" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"></path></svg>
 			</span>
 		case domain.RainedOut:
-			<span role="img" aria-label={ label } class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#DCE7F5] text-sm font-bold leading-none text-[#1E3A6E]">h</span>
+			<span role="img" aria-label={ label } class="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-dashed border-ink/60 bg-oat text-ink">
+				<svg viewBox="0 0 20 20" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M7 4l-2 4M12 4l-2 4M16 4l-2 4M8 12l-2 4M13 12l-2 4"></path></svg>
+			</span>
 		default:
 			<span class="inline-block h-7 w-7" aria-hidden="true"></span>
 	}
@@ -33,5 +35,30 @@ templ FlashMessage(kind, text string) {
 }
 
 templ EmptyState(text string) {
-	<p class="py-8 text-center text-sm text-base-content/60">{ text }</p>
+	<p class="py-10 text-center text-base-content/70">{ text }</p>
+}
+
+// monthPager is the ‹ Month › control shared by recap and admin month views.
+// next may be empty when there is no later month to show.
+templ monthPager(label, prev, next string) {
+	<div class="flex items-center gap-2">
+		<a class="btn btn-circle btn-outline btn-sm" href={ templ.SafeURL(prev) } aria-label="Bulan sebelumnya">‹</a>
+		<span class="min-w-32 text-center text-xl font-semibold">{ label }</span>
+		if next != "" {
+			<a class="btn btn-circle btn-outline btn-sm" href={ templ.SafeURL(next) } aria-label="Bulan berikutnya">›</a>
+		} else {
+			<span class="btn btn-circle btn-outline btn-sm btn-disabled" aria-disabled="true" aria-label="Bulan berikutnya belum tersedia">›</span>
+		}
+	</div>
+}
+
+// statCard is one figure in a summary row.
+templ statCard(label, value, note string) {
+	<div class="sticker p-5">
+		<p class="text-sm text-base-content/70">{ label }</p>
+		<p class="mt-1 text-3xl font-semibold leading-tight">{ value }</p>
+		if note != "" {
+			<p class="mt-1 text-sm text-base-content/70">{ note }</p>
+		}
+	</div>
 }

@@ -20,9 +20,9 @@ templ memberFormFields(form Form) {
 
 templ MembersPage(rows []MemberRow, form Form, flash string) {
 	@AdminLayout("Anggota") {
-		<h1 class="mb-4 text-xl font-semibold">Anggota</h1>
+		@pageTitle("Admin", "Anggota")
 		@flashBlock(flash)
-		<div class="overflow-x-auto rounded-box bg-base-100 shadow-sm">
+		<div class="sticker overflow-x-auto p-2">
 			<table class="table">
 				<thead>
 					<tr>
@@ -41,21 +41,21 @@ templ MembersPage(rows []MemberRow, form Form, flash string) {
 							<td>{ m.Phone }</td>
 							<td>
 								if m.Active {
-									<span class="badge badge-success badge-outline">Aktif</span>
+									<span class="badge badge-primary">Aktif</span>
 								} else {
 									<span class="badge badge-ghost">Nonaktif</span>
 								}
 							</td>
 							<td class="whitespace-nowrap text-right">
-								<a class="btn btn-ghost btn-sm" href={ templ.SafeURL("/admin/members/" + strconv.FormatInt(m.ID, 10) + "/edit") }>Ubah</a>
+								<a class="btn btn-outline btn-sm" href={ templ.SafeURL("/admin/members/" + strconv.FormatInt(m.ID, 10) + "/edit") }>Ubah</a>
 								<form method="post" action={ templ.SafeURL("/admin/members/" + strconv.FormatInt(m.ID, 10) + "/active") } class="inline">
 									@csrfField()
 									if m.Active {
 										<input type="hidden" name="active" value="false"/>
-										<button type="submit" class="btn btn-ghost btn-sm">Nonaktifkan</button>
+										<button type="submit" class="btn btn-outline btn-sm">Nonaktifkan</button>
 									} else {
 										<input type="hidden" name="active" value="true"/>
-										<button type="submit" class="btn btn-ghost btn-sm">Aktifkan</button>
+										<button type="submit" class="btn btn-outline btn-sm">Aktifkan</button>
 									}
 								</form>
 							</td>
@@ -67,8 +67,8 @@ templ MembersPage(rows []MemberRow, form Form, flash string) {
 				@EmptyState("Belum ada anggota.")
 			}
 		</div>
-		<h2 class="mb-2 mt-6 text-lg font-semibold">Tambah anggota</h2>
-		<form method="post" action="/admin/members" class="card max-w-xl bg-base-100 p-4 shadow-sm" novalidate>
+		<h2 class="mb-4 mt-10 text-2xl font-semibold">Tambah anggota</h2>
+		<form method="post" action="/admin/members" class="sticker max-w-xl p-7" novalidate>
 			@csrfField()
 			@memberFormFields(form)
 			<button type="submit" class="btn btn-primary">Tambah</button>
@@ -78,13 +78,13 @@ templ MembersPage(rows []MemberRow, form Form, flash string) {
 
 templ MemberEditPage(id int64, form Form) {
 	@AdminLayout("Ubah Anggota") {
-		<h1 class="mb-4 text-xl font-semibold">Ubah anggota</h1>
-		<form method="post" action={ templ.SafeURL("/admin/members/" + strconv.FormatInt(id, 10)) } class="card max-w-xl bg-base-100 p-4 shadow-sm" novalidate>
+		@pageTitle("Anggota", "Ubah anggota")
+		<form method="post" action={ templ.SafeURL("/admin/members/" + strconv.FormatInt(id, 10)) } class="sticker max-w-xl p-7" novalidate>
 			@csrfField()
 			@memberFormFields(form)
 			<div class="flex gap-2">
 				<button type="submit" class="btn btn-primary">Simpan</button>
-				<a href="/admin/members" class="btn btn-ghost">Batal</a>
+				<a href="/admin/members" class="btn btn-outline">Batal</a>
 			</div>
 		</form>
 	}

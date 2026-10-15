@@ -6,12 +6,12 @@ type Option struct {
 }
 
 templ selectField(label, name string, options []Option, selected, errMsg, placeholder string) {
-	<div class="mb-4">
-		<label class="mb-1 block text-sm font-medium" for={ name }>{ label }</label>
+	<div class="mb-5">
+		<label class="mb-2 block px-2 text-sm font-semibold" for={ name }>{ label }</label>
 		<select
 			id={ name }
 			name={ name }
-			class={ "select select-bordered w-full", templ.KV("select-error", errMsg != "") }
+			class={ "select w-full", templ.KV("select-error", errMsg != "") }
 			if errMsg != "" {
 				aria-invalid="true"
 				aria-describedby={ name + "-error" }
@@ -25,26 +25,26 @@ templ selectField(label, name string, options []Option, selected, errMsg, placeh
 			}
 		</select>
 		if errMsg != "" {
-			<p id={ name + "-error" } class="mt-1 text-sm text-error">{ errMsg }</p>
+			<p id={ name + "-error" } class="mt-2 px-2 text-sm font-semibold text-error">{ errMsg }</p>
 		}
 	</div>
 }
 
 templ textareaField(label, name, value, errMsg string) {
-	<div class="mb-4">
-		<label class="mb-1 block text-sm font-medium" for={ name }>{ label }</label>
+	<div class="mb-5">
+		<label class="mb-2 block px-2 text-sm font-semibold" for={ name }>{ label }</label>
 		<textarea
 			id={ name }
 			name={ name }
 			rows="2"
-			class={ "textarea textarea-bordered w-full", templ.KV("textarea-error", errMsg != "") }
+			class={ "textarea w-full", templ.KV("textarea-error", errMsg != "") }
 			if errMsg != "" {
 				aria-invalid="true"
 				aria-describedby={ name + "-error" }
 			}
 		>{ value }</textarea>
 		if errMsg != "" {
-			<p id={ name + "-error" } class="mt-1 text-sm text-error">{ errMsg }</p>
+			<p id={ name + "-error" } class="mt-2 px-2 text-sm font-semibold text-error">{ errMsg }</p>
 		}
 	</div>
 }
@@ -56,7 +56,7 @@ templ csrfField() {
 
 templ flashBlock(flash string) {
 	if flash != "" {
-		<div class="mb-4">
+		<div class="mb-5">
 			@FlashMessage("success", flash)
 		</div>
 	}

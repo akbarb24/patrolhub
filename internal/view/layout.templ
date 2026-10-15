@@ -2,30 +2,46 @@ package view
 
 templ base(title string) {
 	<!DOCTYPE html>
-	<html lang="id" data-theme="light">
+	<html lang="id" data-theme="patrolhub">
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="theme-color" content="#e5e7eb"/>
 			<title>{ title }</title>
+			<link rel="preload" href="/static/fonts/dm-sans-latin.woff2" as="font" type="font/woff2" crossorigin/>
+			<link rel="preload" href="/static/fonts/bowlby-one-latin.woff2" as="font" type="font/woff2" crossorigin/>
 			<link rel="stylesheet" href="/static/css/app.css"/>
 			<script src="/static/js/htmx.min.js" defer></script>
 			<script src="/static/js/alpine.min.js" defer></script>
 		</head>
-		<body class="min-h-screen bg-base-200" hx-headers={ hxHeaders(ctx) }>
+		<body class="min-h-screen bg-base-200 font-sans text-base leading-normal text-base-content antialiased" hx-headers={ hxHeaders(ctx) }>
 			{ children... }
 		</body>
 	</html>
 }
 
+// logo is the wordmark lockup: a shield badge with a sticker outline plus the brand.
+templ logo(href string) {
+	<a href={ templ.SafeURL(href) } class="inline-flex min-w-0 items-center gap-2" aria-label={ brand(ctx) }>
+		<span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-black bg-kofi" aria-hidden="true">
+			<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"></path><path d="M9 12l2 2 4-4"></path></svg>
+		</span>
+		<span class="min-w-0 leading-tight">
+			<span class="block font-display text-xl leading-none">PatrolHub</span>
+			if rt := Page(ctx).RTName; rt != "" {
+				<span class="block truncate text-sm text-base-content/70">{ rt }</span>
+			}
+		</span>
+	</a>
+}
+
 // PublicLayout is the mobile-first shell for the report page and the public recap.
 templ PublicLayout(title string) {
 	@base(title) {
-		<header class="bg-[#1E3A6E] text-white">
-			<div class="mx-auto flex w-full max-w-[480px] items-center px-4 py-3">
-				<a href="/recap" class="text-lg font-semibold">{ brand(ctx) }</a>
-			</div>
+		<header class="mx-auto flex w-full max-w-[480px] items-center px-4 pb-2 pt-5">
+			@logo("/recap")
 		</header>
-		<main class="mx-auto w-full max-w-[480px] px-4 py-4">
+		<main class="mx-auto w-full max-w-[480px] px-4 pb-16 pt-4">
 			{ children... }
 		</main>
 	}
@@ -34,24 +50,38 @@ templ PublicLayout(title string) {
 // AdminLayout is the shell for every /admin page after login.
 templ AdminLayout(title string) {
 	@base(title) {
-		<header class="navbar bg-[#1E3A6E] text-white print:hidden">
-			<div class="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-4 px-4">
-				<span class="font-semibold">{ brand(ctx) }</span>
-				<nav class="flex flex-wrap items-center gap-x-4 text-sm" aria-label="Menu admin">
-					<a href="/admin/nights">Malam</a>
-					<a href="/admin/members">Anggota</a>
-					<a href="/admin/schedule">Jadwal</a>
-					<a href="/admin/fines">Denda</a>
-					<a href="/admin/settings">Pengaturan</a>
+		<header class="mx-auto w-full max-w-[1200px] px-4 pb-2 pt-5 print:hidden">
+			<div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+				@logo("/admin/nights")
+				<nav class="order-3 flex w-full gap-1 overflow-x-auto md:order-none md:w-auto" aria-label="Menu admin">
+					@adminNavLink("/admin/nights", "Malam")
+					@adminNavLink("/admin/members", "Anggota")
+					@adminNavLink("/admin/schedule", "Jadwal")
+					@adminNavLink("/admin/fines", "Denda")
+					@adminNavLink("/admin/settings", "Pengaturan")
 				</nav>
 				<form method="post" action="/admin/logout" class="ml-auto">
 					<input type="hidden" name="csrf_token" value={ Page(ctx).CSRFToken }/>
-					<button type="submit" class="btn btn-ghost btn-sm">Keluar</button>
+					<button type="submit" class="btn btn-neutral">Keluar</button>
 				</form>
 			</div>
 		</header>
-		<main class="mx-auto w-full max-w-5xl px-4 py-4">
+		<main class="mx-auto w-full max-w-[1200px] px-4 pb-16 pt-6">
 			{ children... }
 		</main>
 	}
+}
+
+templ adminNavLink(href, label string) {
+	<a href={ templ.SafeURL(href) } class="whitespace-nowrap rounded-full px-4 py-2 hover:bg-base-100">{ label }</a>
+}
+
+// pageTitle is the section headline block: an optional eyebrow and a display heading.
+templ pageTitle(eyebrow, title string) {
+	<div class="mb-8">
+		if eyebrow != "" {
+			<p class="eyebrow mb-2">{ eyebrow }</p>
+		}
+		<h1 class="display break-words text-5xl">{ title }</h1>
+	</div>
 }

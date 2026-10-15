@@ -8,7 +8,7 @@ import (
 )
 
 templ scheduleTabs(active string) {
-	<nav class="tabs tabs-bordered mb-4" aria-label="Jadwal">
+	<nav class="tabs tabs-box mb-6 inline-flex flex-wrap" aria-label="Jadwal">
 		<a
 			href="/admin/schedule"
 			class={ "tab", templ.KV("tab-active", active == "rules") }
@@ -35,15 +35,15 @@ templ scheduleTabs(active string) {
 
 templ SchedulePage(week [7][]service.RuleView, members, days []Option, form Form, flash string) {
 	@AdminLayout("Jadwal") {
-		<h1 class="mb-4 text-xl font-semibold">Jadwal</h1>
+		@pageTitle("Admin", "Jadwal")
 		@scheduleTabs("rules")
 		@flashBlock(flash)
-		<div class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+		<div class="mb-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
 			for i, rules := range week {
-				<section class="card bg-base-100 p-3 shadow-sm" aria-labelledby={ "day-" + strconv.Itoa(i+1) }>
-					<h2 id={ "day-" + strconv.Itoa(i+1) } class="mb-2 font-semibold">{ domain.WeekdayNameID(i + 1) }</h2>
+				<section class="sticker p-5" aria-labelledby={ "day-" + strconv.Itoa(i+1) }>
+					<h2 id={ "day-" + strconv.Itoa(i+1) } class="mb-3 text-xl font-semibold">{ domain.WeekdayNameID(i + 1) }</h2>
 					if len(rules) == 0 {
-						<p class="text-sm text-base-content/60">Belum ada peserta.</p>
+						<p class="text-sm text-base-content/70">Belum ada peserta.</p>
 					}
 					<ul class="space-y-1">
 						for _, r := range rules {
@@ -51,12 +51,12 @@ templ SchedulePage(week [7][]service.RuleView, members, days []Option, form Form
 								<span>
 									{ r.DisplayName }
 									if r.Upcoming {
-										<span class="block text-xs text-base-content/60">mulai { domain.FormatDateID(r.From) }</span>
+										<span class="block text-xs text-base-content/70">mulai { domain.FormatDateID(r.From) }</span>
 									}
 								</span>
 								<form method="post" action={ templ.SafeURL("/admin/schedule/rules/" + strconv.FormatInt(r.ID, 10) + "/end") }>
 									@csrfField()
-									<button type="submit" class="btn btn-ghost btn-xs" onclick="return confirm('Keluarkan dari jadwal?')">Keluarkan</button>
+									<button type="submit" class="btn btn-outline btn-xs" onclick="return confirm('Keluarkan dari jadwal?')">Keluarkan</button>
 								</form>
 							</li>
 						}
@@ -64,8 +64,8 @@ templ SchedulePage(week [7][]service.RuleView, members, days []Option, form Form
 				</section>
 			}
 		</div>
-		<h2 class="mb-2 text-lg font-semibold">Tambah ke jadwal</h2>
-		<form method="post" action="/admin/schedule/rules" class="card max-w-xl bg-base-100 p-4 shadow-sm" novalidate>
+		<h2 class="mb-4 text-2xl font-semibold">Tambah ke jadwal</h2>
+		<form method="post" action="/admin/schedule/rules" class="sticker max-w-xl p-7" novalidate>
 			@csrfField()
 			@selectField("Peserta", "member_id", members, form.Values["member_id"], form.Errors["member_id"], "Pilih peserta")
 			@selectField("Hari jaga", "day_of_week", days, form.Values["day_of_week"], form.Errors["day_of_week"], "Pilih hari")
@@ -76,17 +76,17 @@ templ SchedulePage(week [7][]service.RuleView, members, days []Option, form Form
 }
 
 templ TeamPreview(date domain.Date, team []service.TeamEntry) {
-	<div id="team-preview" class="rounded-box bg-base-100 p-3 text-sm shadow-sm" aria-live="polite">
-		<p class="mb-1 font-medium">Tim { domain.FormatDateID(date) }</p>
+	<div id="team-preview" class="oat p-5 text-sm" aria-live="polite">
+		<p class="mb-1 font-semibold">Tim { domain.FormatDateID(date) }</p>
 		if len(team) == 0 {
-			<p class="text-base-content/60">Belum ada tim.</p>
+			<p class="text-base-content/70">Belum ada tim.</p>
 		}
 		<ul class="list-disc pl-5">
 			for _, t := range team {
 				<li>
 					{ t.DisplayName }
 					if t.Source == domain.SourceOverride {
-						<span class="badge badge-warning badge-sm ml-1">perubahan</span>
+						<span class="badge badge-warning badge-sm ml-1 border-ink">perubahan</span>
 					}
 				</li>
 			}
@@ -96,27 +96,27 @@ templ TeamPreview(date domain.Date, team []service.TeamEntry) {
 
 templ OverridesPage(date domain.Date, team []service.TeamEntry, list []service.OverrideView, members, actions []Option, form Form, flash string) {
 	@AdminLayout("Perubahan Jadwal") {
-		<h1 class="mb-4 text-xl font-semibold">Jadwal</h1>
+		@pageTitle("Admin", "Jadwal")
 		@scheduleTabs("overrides")
 		@flashBlock(flash)
 		<div class="grid gap-6 lg:grid-cols-2">
-			<form method="post" action="/admin/schedule/overrides" class="card bg-base-100 p-4 shadow-sm" novalidate>
+			<form method="post" action="/admin/schedule/overrides" class="sticker p-7" novalidate>
 				@csrfField()
-				<div class="mb-4">
-					<label class="mb-1 block text-sm font-medium" for="patrol_date">Tanggal malam</label>
+				<div class="mb-5">
+					<label class="mb-2 block px-2 text-sm font-semibold" for="patrol_date">Tanggal malam</label>
 					<input
 						id="patrol_date"
 						name="patrol_date"
 						type="date"
 						value={ date.String() }
-						class={ "input input-bordered w-full", templ.KV("input-error", form.Errors["patrol_date"] != "") }
+						class={ "input w-full", templ.KV("input-error", form.Errors["patrol_date"] != "") }
 						hx-get="/admin/schedule/overrides/preview"
 						hx-trigger="change"
 						hx-target="#team-preview"
 						hx-swap="outerHTML"
 					/>
 					if form.Errors["patrol_date"] != "" {
-						<p class="mt-1 text-sm text-error">{ form.Errors["patrol_date"] }</p>
+						<p class="mt-2 px-2 text-sm font-semibold text-error">{ form.Errors["patrol_date"] }</p>
 					}
 				</div>
 				@TeamPreview(date, team)
@@ -128,13 +128,13 @@ templ OverridesPage(date domain.Date, team []service.TeamEntry, list []service.O
 				<button type="submit" class="btn btn-primary">Simpan</button>
 			</form>
 			<section>
-				<h2 class="mb-2 text-lg font-semibold">Perubahan terdekat</h2>
+				<h2 class="mb-4 text-2xl font-semibold">Perubahan terdekat</h2>
 				if len(list) == 0 {
 					@EmptyState("Belum ada perubahan.")
 				}
 				<ul class="space-y-2">
 					for _, o := range list {
-						<li class="flex items-start justify-between gap-2 rounded-box bg-base-100 p-3 text-sm shadow-sm">
+						<li class="flex items-start justify-between gap-2 rounded-2xl bg-base-100 p-4 text-sm">
 							<div>
 								<p class="font-medium">{ domain.FormatDateID(o.Date) }</p>
 								<p>
@@ -148,13 +148,13 @@ templ OverridesPage(date domain.Date, team []service.TeamEntry, list []service.O
 									}
 								</p>
 								if o.Note != "" {
-									<p class="text-base-content/60">{ o.Note }</p>
+									<p class="text-base-content/70">{ o.Note }</p>
 								}
 							</div>
 							if o.Deletable {
 								<form method="post" action={ templ.SafeURL("/admin/schedule/overrides/" + strconv.FormatInt(o.ID, 10) + "/delete") }>
 									@csrfField()
-									<button type="submit" class="btn btn-ghost btn-xs" onclick="return confirm('Hapus perubahan ini?')">Hapus</button>
+									<button type="submit" class="btn btn-outline btn-xs" onclick="return confirm('Hapus perubahan ini?')">Hapus</button>
 								</form>
 							} else {
 								<span class="badge badge-ghost">Ditutup</span>
@@ -169,14 +169,12 @@ templ OverridesPage(date domain.Date, team []service.TeamEntry, list []service.O
 
 templ SchedulePreviewPage(label, prev, next string, days []service.DayTeam) {
 	@AdminLayout("Pratinjau Jadwal") {
-		<h1 class="mb-4 text-xl font-semibold">Jadwal</h1>
+		@pageTitle("Admin", "Jadwal")
 		@scheduleTabs("preview")
-		<div class="mb-4 flex items-center gap-3">
-			<a class="btn btn-sm" href={ templ.SafeURL("/admin/schedule/preview?month=" + prev) } aria-label="Bulan sebelumnya">‹</a>
-			<span class="font-medium">{ label }</span>
-			<a class="btn btn-sm" href={ templ.SafeURL("/admin/schedule/preview?month=" + next) } aria-label="Bulan berikutnya">›</a>
+		<div class="mb-6">
+			@monthPager(label, "/admin/schedule/preview?month="+prev, "/admin/schedule/preview?month="+next)
 		</div>
-		<div class="overflow-x-auto rounded-box bg-base-100 shadow-sm">
+		<div class="sticker overflow-x-auto p-2">
 			<table class="table table-sm">
 				<thead>
 					<tr>

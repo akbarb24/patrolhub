@@ -43,7 +43,7 @@ func TestRecapSummary(t *testing.T) {
 	if n := strings.Count(body, "Belum ada malam jaga bulan ini."); n != 6 {
 		t.Errorf("empty day cards: %d, want 6", n)
 	}
-	if n := strings.Count(body, "<section class=\"rounded-box bg-base-100 p-3 shadow-sm\" aria-labelledby=\"card-"); n != 7 {
+	if n := strings.Count(body, "<section class=\"sticker p-5\" aria-labelledby=\"card-"); n != 7 {
 		t.Errorf("day cards: %d, want 7", n)
 	}
 	// The current month cannot be navigated past.

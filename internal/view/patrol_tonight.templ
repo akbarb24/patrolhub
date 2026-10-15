@@ -9,16 +9,22 @@ import (
 
 templ TonightPage(v service.TonightView) {
 	@PublicLayout("Laporan Ronda " + v.RTName) {
-		<h1 class="text-xl font-semibold">Laporan Ronda { v.RTName }</h1>
-		<p class="mb-4 text-sm text-base-content/70">Tanggal: { domain.FormatDateID(v.NightDate) }</p>
+		<h1 class="mb-3">
+			<span class="eyebrow block">Laporan Ronda</span>
+			<span class="display mt-2 block break-words text-5xl">{ v.RTName }</span>
+		</h1>
+		<p class="mb-8 inline-flex items-center gap-2 rounded-full bg-oat px-4 py-2 text-sm font-semibold">
+			<svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="14" height="13" rx="3"></rect><path d="M3 8h14M7 2v4M13 2v4"></path></svg>
+			Tanggal: { domain.FormatDateID(v.NightDate) }
+		</p>
 		switch {
 			case !v.Open:
 				@tonightClosed(v)
 			case v.Locked:
 				@FlashMessage("info", "Laporan malam ini sudah ditutup.")
-				<div class="mt-4">
+				@card("Tim Ronda", "team-title") {
 					@TeamSection(v)
-				</div>
+				}
 			default:
 				@tonightOpen(v)
 		}
@@ -26,31 +32,34 @@ templ TonightPage(v service.TonightView) {
 }
 
 templ tonightClosed(v service.TonightView) {
-	@FlashMessage("info", "Laporan dibuka pukul "+clockDotted(v.WindowOpen))
-	<h2 class="mb-2 mt-4 font-semibold">Tim Ronda</h2>
-	if len(v.Team) == 0 {
-		@EmptyState("Belum ada tim untuk malam ini.")
-	}
-	<ul class="divide-y divide-base-300 rounded-box bg-base-100 shadow-sm">
-		for _, r := range v.Team {
-			<li class="px-3 py-3">{ r.DisplayName }</li>
+	<div class="oat mb-6 p-7">
+		<p class="text-xl font-semibold leading-snug">Laporan dibuka pukul { clockDotted(v.WindowOpen) }</p>
+		<p class="mt-1 text-base-content/70">Kembali ke halaman ini saat jam ronda untuk mengisi kehadiran.</p>
+	</div>
+	@card("Tim Ronda", "team-title") {
+		if len(v.Team) == 0 {
+			@EmptyState("Belum ada tim untuk malam ini.")
 		}
-	</ul>
+		<ul class="divide-y divide-fog">
+			for _, r := range v.Team {
+				<li class="py-3">{ r.DisplayName }</li>
+			}
+		</ul>
+	}
 }
 
 templ tonightOpen(v service.TonightView) {
-	<div id="toast" role="status" aria-live="polite" class="fixed inset-x-4 bottom-4 z-10 mx-auto hidden max-w-[448px] rounded-box bg-error px-4 py-3 text-sm text-error-content shadow-lg"></div>
-	<section aria-labelledby="team-title">
-		<h2 id="team-title" class="mb-2 font-semibold">Tim Ronda</h2>
+	<div id="toast" role="status" aria-live="polite" class="fixed inset-x-4 bottom-4 z-10 mx-auto hidden max-w-[448px] rounded-2xl border-2 border-black bg-error px-5 py-3 font-semibold text-error-content"></div>
+	@card("Tim Ronda", "team-title") {
+		<p class="-mt-2 mb-2 text-sm text-base-content/70">Ketuk nama untuk menandai hadir.</p>
 		@TeamSection(v)
-	</section>
-	<section class="mt-6" aria-labelledby="situation-title">
-		<h2 id="situation-title" class="mb-2 font-semibold">Situasi</h2>
+	}
+	@card("Situasi", "situation-title") {
 		<textarea
 			name="note"
 			maxlength="1000"
 			rows="4"
-			class="textarea textarea-bordered w-full"
+			class="textarea w-full"
 			placeholder="Mis. Aman"
 			aria-describedby="situation-status"
 			hx-post="/patrol/tonight/situation"
@@ -58,15 +67,17 @@ templ tonightOpen(v service.TonightView) {
 			hx-target="#situation-status"
 			hx-swap="innerHTML"
 		>{ v.Situation }</textarea>
-		<p id="situation-status" class="mt-1 text-xs text-base-content/60" aria-live="polite"></p>
-	</section>
-	<section class="mt-6" aria-labelledby="photo-title">
-		<h2 id="photo-title" class="mb-2 font-semibold">Foto</h2>
+		<p id="situation-status" class="mt-2 px-2 text-sm text-base-content/70" aria-live="polite"></p>
+	}
+	@card("Foto", "photo-title") {
 		@PhotoPanel(v)
 		<input id="photo-input" type="file" accept="image/*" capture="environment" hidden/>
-		<button id="photo-button" type="button" class="btn btn-primary mt-3 w-full" onclick="document.getElementById('photo-input').click()">Ambil Foto</button>
-	</section>
-	<section class="mt-8" id="rain-box">
+		<button id="photo-button" type="button" class="btn btn-primary btn-lg mt-5 w-full" onclick="document.getElementById('photo-input').click()">
+			<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>
+			Ambil Foto
+		</button>
+	}
+	<section class="mt-10" id="rain-box">
 		@RainPanel(v)
 	</section>
 	<script src="/static/js/patrol.js" defer></script>
@@ -79,18 +90,16 @@ templ TeamSection(v service.TonightView) {
 		if len(v.Team) == 0 {
 			@EmptyState("Belum ada tim untuk malam ini.")
 		}
-		<ul id="team-list" class="divide-y divide-base-300 rounded-box bg-base-100 shadow-sm">
+		<ul id="team-list" class="divide-y divide-fog">
 			for _, r := range v.Team {
 				if v.Locked {
-					<li class="flex min-h-12 items-center justify-between px-3 py-2">
+					<li class="flex min-h-14 items-center justify-between gap-3 py-2">
 						<span>{ r.DisplayName }</span>
-						<span class="text-sm text-base-content/70">
-							if r.Present {
-								Hadir
-							} else {
-								Tidak hadir
-							}
-						</span>
+						if r.Present {
+							<span class="badge badge-primary">Hadir</span>
+						} else {
+							<span class="badge badge-neutral">Tidak hadir</span>
+						}
 					</li>
 				} else {
 					@TeamRowItem(r)
@@ -98,22 +107,22 @@ templ TeamSection(v service.TonightView) {
 			}
 		</ul>
 		if len(v.Candidates) > 0 && !v.Locked {
-			<button type="button" class="btn btn-ghost btn-sm mt-2" x-show="!adding" @click="adding = true">Tambah anggota pengganti</button>
+			<button type="button" class="btn btn-outline mt-4 w-full" x-show="!adding" @click="adding = true">+ Tambah anggota pengganti</button>
 			<form
 				x-show="adding"
 				x-cloak
-				class="mt-2 flex gap-2"
+				class="mt-4 flex gap-2"
 				hx-post="/patrol/tonight/walk-in"
 				hx-target="#team-section"
 				hx-swap="outerHTML"
 			>
-				<select name="member_id" class="select select-bordered flex-1" aria-label="Anggota pengganti" required>
+				<select name="member_id" class="select min-w-0 flex-1" aria-label="Anggota pengganti" required>
 					<option value="">Pilih anggota</option>
 					for _, c := range v.Candidates {
 						<option value={ itoa(c.ID) }>{ c.Label }</option>
 					}
 				</select>
-				<button type="submit" class="btn btn-primary">Tambah</button>
+				<button type="submit" class="btn btn-neutral">Tambah</button>
 			</form>
 		}
 	</div>
@@ -122,11 +131,11 @@ templ TeamSection(v service.TonightView) {
 // TeamRowItem is one tappable row; the whole row toggles the checkbox.
 templ TeamRowItem(r service.TeamRow) {
 	<li id={ "member-" + itoa(r.MemberID) }>
-		<label class="flex min-h-12 cursor-pointer items-center justify-between gap-3 px-3 py-2">
+		<label class="flex min-h-14 cursor-pointer items-center justify-between gap-3 py-2">
 			<span>
 				{ r.DisplayName }
 				if r.Source == domain.SourceWalkIn {
-					<span class="badge badge-ghost badge-sm ml-1">pengganti</span>
+					<span class="badge badge-warning badge-sm ml-1">pengganti</span>
 				}
 			</span>
 			<input
@@ -150,16 +159,16 @@ templ SituationSaved(at string) {
 
 templ PhotoPanel(v service.TonightView) {
 	<div id="photo-list">
-		<p id="photo-count" class={ "text-sm", templ.KV("text-warning", len(v.Photos) < v.MinPhotos) }>
+		<p id="photo-count" class={ "text-sm", templ.KV("font-semibold", len(v.Photos) < v.MinPhotos) }>
 			{ fmt.Sprint(len(v.Photos)) } dari minimal { fmt.Sprint(v.MinPhotos) } foto (maks. { fmt.Sprint(v.MaxPhotos) })
 		</p>
-		<ul class="mt-2 grid grid-cols-3 gap-2">
+		<ul class="mt-3 grid grid-cols-3 gap-3">
 			for _, p := range v.Photos {
 				<li>
 					<img
 						src={ "/patrol/tonight/photos/" + itoa(p.ID) + "/thumb" }
 						alt={ "Foto ronda pukul " + ClockText(p.TakenAt) }
-						class="aspect-square w-full rounded object-cover"
+						class="aspect-square w-full rounded-2xl border-2 border-black object-cover"
 						loading="lazy"
 					/>
 				</li>
@@ -174,11 +183,19 @@ templ RainPanel(v service.TonightView) {
 	} else {
 		<button
 			type="button"
-			class="btn btn-outline btn-sm w-full"
+			class="btn btn-outline w-full"
 			hx-post="/patrol/tonight/rain"
 			hx-confirm="Ajukan malam ini sebagai hujan? Pengurus akan mengonfirmasi."
 			hx-target="#rain-box"
 			hx-swap="innerHTML"
 		>Ajukan Hujan</button>
 	}
+}
+
+// card is a sticker-outlined section with a heading.
+templ card(title, id string) {
+	<section class="sticker mb-6 p-6" aria-labelledby={ id }>
+		<h2 id={ id } class="mb-4 text-xl font-semibold">{ title }</h2>
+		{ children... }
+	</section>
 }

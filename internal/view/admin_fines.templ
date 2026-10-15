@@ -9,28 +9,26 @@ import (
 
 templ FinesPage(fm service.FineMonth, label, prev, next, today string, form Form, flash string) {
 	@AdminLayout("Denda " + label) {
-		<h1 class="mb-4 text-xl font-semibold">Denda</h1>
-		<div class="mb-4 flex items-center gap-3">
-			<a class="btn btn-sm" href={ templ.SafeURL("/admin/fines/" + prev) } aria-label="Bulan sebelumnya">‹</a>
-			<span class="font-medium">{ label }</span>
-			<a class="btn btn-sm" href={ templ.SafeURL("/admin/fines/" + next) } aria-label="Bulan berikutnya">›</a>
-			<a class="btn btn-sm ml-auto" href={ templ.SafeURL(fmt.Sprintf("/admin/export/%04d/%02d.csv", fm.Year, int(fm.Month))) }>Ekspor CSV</a>
+		@pageTitle("Admin", "Denda")
+		<div class="mb-6 flex flex-wrap items-center gap-3">
+			@monthPager(label, "/admin/fines/"+prev, "/admin/fines/"+next)
+			<a class="btn btn-outline ml-auto" href={ templ.SafeURL(fmt.Sprintf("/admin/export/%04d/%02d.csv", fm.Year, int(fm.Month))) }>Ekspor CSV</a>
 		</div>
 		@flashBlock(flash)
 		if form.Errors["_"] != "" {
-			<div class="mb-4">
+			<div class="mb-5">
 				@FlashMessage("error", form.Errors["_"])
 			</div>
 		}
-		<dl class="mb-4 grid max-w-md grid-cols-2 gap-x-4 gap-y-1 rounded-box bg-base-100 p-4 text-sm shadow-sm">
-			<dt class="text-base-content/60">Total denda</dt>
-			<dd>{ rupiah(fm.TotalFines) }</dd>
-			<dt class="text-base-content/60">Total dibayar</dt>
-			<dd>{ rupiah(fm.TotalPaid) }</dd>
-			<dt class="text-base-content/60">Sisa</dt>
-			<dd>{ rupiahNeg(fm.TotalFines - fm.TotalPaid) }</dd>
-		</dl>
-		<div class="mb-6 overflow-x-auto rounded-box bg-base-100 shadow-sm">
+		<div class="mb-6 grid gap-4 sm:grid-cols-3">
+			@statCard("Total denda", rupiah(fm.TotalFines), "")
+			@statCard("Total dibayar", rupiah(fm.TotalPaid), "")
+			<div class="oat p-5">
+				<p class="text-sm text-base-content/70">Sisa</p>
+				<p class="mt-1 text-3xl font-semibold leading-tight">{ rupiahNeg(fm.TotalFines - fm.TotalPaid) }</p>
+			</div>
+		</div>
+		<div class="sticker mb-10 overflow-x-auto p-2">
 			<table class="table">
 				<thead>
 					<tr>
@@ -50,19 +48,19 @@ templ FinesPage(fm service.FineMonth, label, prev, next, today string, form Form
 							<td>{ rupiahNeg(r.Remaining) }</td>
 							<td class="min-w-60">
 								<details open?={ form.Values["member_id"] == itoa(r.MemberID) }>
-									<summary class="btn btn-ghost btn-xs">Catat pembayaran</summary>
+									<summary class="btn btn-outline btn-xs">Catat pembayaran</summary>
 									<form method="post" action={ templ.SafeURL(fmt.Sprintf("/admin/fines/%04d/%02d/payments", fm.Year, int(fm.Month))) } class="mt-2 space-y-2" novalidate>
 										@csrfField()
 										<input type="hidden" name="member_id" value={ itoa(r.MemberID) }/>
-										<input name="amount" type="number" min="1" aria-label="Nominal" class="input input-bordered input-sm w-full" value={ paymentAmount(form, r) }/>
+										<input name="amount" type="number" min="1" aria-label="Nominal" class="input input-sm w-full" value={ paymentAmount(form, r) }/>
 										if form.Values["member_id"] == itoa(r.MemberID) && form.Errors["amount"] != "" {
 											<p class="text-xs text-error">{ form.Errors["amount"] }</p>
 										}
-										<input name="paid_at" type="date" aria-label="Tanggal bayar" class="input input-bordered input-sm w-full" value={ paymentDate(form, today) }/>
+										<input name="paid_at" type="date" aria-label="Tanggal bayar" class="input input-sm w-full" value={ paymentDate(form, today) }/>
 										if form.Values["member_id"] == itoa(r.MemberID) && form.Errors["paid_at"] != "" {
 											<p class="text-xs text-error">{ form.Errors["paid_at"] }</p>
 										}
-										<button type="submit" class="btn btn-primary btn-xs">Simpan</button>
+										<button type="submit" class="btn btn-neutral btn-sm">Simpan</button>
 									</form>
 								</details>
 							</td>
@@ -74,17 +72,17 @@ templ FinesPage(fm service.FineMonth, label, prev, next, today string, form Form
 				@EmptyState("Tidak ada denda bulan ini.")
 			}
 		</div>
-		<h2 class="mb-2 font-semibold">Pembayaran tercatat</h2>
+		<h2 class="mb-4 text-2xl font-semibold">Pembayaran tercatat</h2>
 		if len(fm.Payments) == 0 {
-			<p class="text-sm text-base-content/60">Belum ada pembayaran.</p>
+			<p class="text-base-content/70">Belum ada pembayaran.</p>
 		}
 		<ul class="space-y-2">
 			for _, p := range fm.Payments {
-				<li class="flex items-center justify-between gap-2 rounded-box bg-base-100 px-3 py-2 text-sm shadow-sm">
+				<li class="flex items-center justify-between gap-2 rounded-2xl bg-base-100 px-4 py-3 text-sm">
 					<span>{ p.DisplayName } · { rupiah(p.Amount) } · { domain.FormatDateID(p.PaidAt) }</span>
 					<form method="post" action={ templ.SafeURL(fmt.Sprintf("/admin/fines/%04d/%02d/payments/%d/delete", fm.Year, int(fm.Month), p.ID)) }>
 						@csrfField()
-						<button type="submit" class="btn btn-ghost btn-xs" onclick="return confirm('Hapus pembayaran ini?')">Hapus</button>
+						<button type="submit" class="btn btn-outline btn-xs" onclick="return confirm('Hapus pembayaran ini?')">Hapus</button>
 					</form>
 				</li>
 			}
