@@ -1,5 +1,5 @@
-// Package storage keeps patrol photos behind a small interface so the local disk
-// store can later be swapped for S3/MinIO.
+// Package storage keeps patrol photos behind a small interface, implemented by the
+// local disk (LocalStore) and by any S3-compatible bucket (S3Store).
 package storage
 
 import (
@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -25,13 +26,32 @@ type LocalStore struct {
 
 var ErrInvalidKey = errors.New("invalid storage key")
 
-// path resolves a key below Dir and rejects anything that could escape it.
-func (s LocalStore) path(key string) (string, error) {
-	clean := filepath.Clean(filepath.FromSlash(key))
-	if key == "" || filepath.IsAbs(clean) || clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+// validKey cleans a key and rejects anything that could escape the store's root,
+// returning it slash-separated.
+func validKey(key string) (string, error) {
+	clean := path.Clean(filepath.ToSlash(key))
+	if key == "" || path.IsAbs(clean) || filepath.IsAbs(key) || clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
 		return "", fmt.Errorf("%w: %q", ErrInvalidKey, key)
 	}
-	return filepath.Join(s.Dir, clean), nil
+	return clean, nil
+}
+
+// ContentType derives the media type from the storage key; photos are only ever
+// stored as .jpg or .webp, chosen from the sniffed content.
+func ContentType(key string) string {
+	if strings.HasSuffix(key, ".webp") {
+		return "image/webp"
+	}
+	return "image/jpeg"
+}
+
+// path resolves a key below Dir.
+func (s LocalStore) path(key string) (string, error) {
+	clean, err := validKey(key)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(s.Dir, filepath.FromSlash(clean)), nil
 }
 
 // Save writes to a temporary file in the target directory and renames it, so a

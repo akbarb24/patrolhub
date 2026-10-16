@@ -381,5 +381,5 @@ func (s *NightService) OpenPhoto(ctx context.Context, id int64) (io.ReadCloser, 
 		return nil, "", notFound(err)
 	}
 	f, err := s.store.Open(ctx, p.StorageKey)
-	return f, PhotoContentType(p.StorageKey), err
+	return f, storage.ContentType(p.StorageKey), err
 }

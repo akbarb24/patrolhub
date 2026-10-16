@@ -7,5 +7,16 @@ services:
       POSTGRES_DB: patrolhub
     ports: ["5432:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
+  # Optional S3-compatible photo storage: docker compose --profile s3 up -d
+  # Dev-only credentials (access key "dev", secret "dev-secret") come from deploy/dev/seaweedfs-s3.json.
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.48
+    profiles: [s3]
+    command: server -s3 -s3.config=/etc/seaweedfs/s3.json -dir=/data -ip.bind=0.0.0.0
+    ports: ["8333:8333"]
+    volumes:
+      - seaweed:/data
+      - ./deploy/dev/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
 volumes:
   pgdata:
+  seaweed:

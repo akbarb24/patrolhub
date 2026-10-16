@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"sort"
-	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -427,14 +426,5 @@ func (s *PatrolService) OpenTonightPhoto(ctx context.Context, now time.Time, id 
 		return nil, "", ErrNotFound
 	}
 	f, err := s.store.Open(ctx, p.StorageKey)
-	return f, PhotoContentType(p.StorageKey), err
-}
-
-// PhotoContentType derives the media type from the storage key; AddPhoto only ever
-// stores .jpg or .webp, chosen from the sniffed content.
-func PhotoContentType(key string) string {
-	if strings.HasSuffix(key, ".webp") {
-		return "image/webp"
-	}
-	return "image/jpeg"
+	return f, storage.ContentType(p.StorageKey), err
 }

@@ -13,7 +13,7 @@ The UI is in Indonesian; code, routes and comments are in English.
 
 ## Stack
 
-Go, chi, templ, HTMX + Alpine.js, Tailwind CSS v4 + daisyUI, PostgreSQL 16+ (pgx, sqlc, goose), scs sessions, nosurf CSRF. The full list is in [PatrolHub-Implementation-Plan.md](PatrolHub-Implementation-Plan.md).
+Go, chi, templ, HTMX + Alpine.js, Tailwind CSS v4 + daisyUI, PostgreSQL 16+ (pgx, sqlc, goose), scs sessions, nosurf CSRF, minio-go for optional S3 photo storage. The full list is in [PatrolHub-Implementation-Plan.md](PatrolHub-Implementation-Plan.md).
 
 ## Getting started
 

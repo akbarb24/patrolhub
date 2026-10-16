@@ -38,6 +38,7 @@ Referensi kebutuhan memakai ID dari PRD (mis. **F2.5**). Bila rencana ini dan PR
 | Hash password | `golang.org/x/crypto/bcrypt` |
 | QR code | `github.com/skip2/go-qrcode` |
 | UUID | `github.com/google/uuid` |
+| Object storage (S3) | `github.com/minio/minio-go/v7` (added in Step 15, see `PatrolHub-Fly-Deploy-Plan.md`) |
 | Live reload (dev) | `github.com/air-verse/air` |
 
 ---

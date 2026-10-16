@@ -132,7 +132,10 @@ func serve(cfg config.Config) error {
 	if err := settings.SeedWindow(ctx, winOpen, winClose); err != nil {
 		return fmt.Errorf("seed window from WINDOW_OPEN/WINDOW_CLOSE: %w", err)
 	}
-	photos := storage.LocalStore{Dir: cfg.PhotoDir}
+	photos, err := photoStore(ctx, cfg)
+	if err != nil {
+		return err
+	}
 	handler, err := httpx.NewRouter(httpx.Deps{
 		Config:   cfg,
 		Sessions: httpx.NewSessionManager(pool, cfg),
@@ -166,4 +169,19 @@ func serve(cfg config.Config) error {
 		return err
 	}
 	return nil
+}
+
+// photoStore picks the S3 bucket when BUCKET_NAME is set, the local disk otherwise.
+// Startup fails if the bucket is unreachable rather than failing every upload later.
+func photoStore(ctx context.Context, cfg config.Config) (storage.PhotoStore, error) {
+	if !cfg.S3.Enabled() {
+		slog.Info("photo store", "kind", "local", "dir", cfg.PhotoDir)
+		return storage.LocalStore{Dir: cfg.PhotoDir}, nil
+	}
+	s, err := storage.NewS3Store(ctx, cfg.S3)
+	if err != nil {
+		return nil, fmt.Errorf("photo store: %w", err)
+	}
+	slog.Info("photo store", "kind", "s3", "endpoint", cfg.S3.Endpoint, "bucket", cfg.S3.Bucket)
+	return s, nil
 }
