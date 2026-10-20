@@ -13,7 +13,7 @@ Two docs drive the work (both Indonesian, both in the repo root):
 
 If they conflict, the PRD wins: note the difference and ask the product owner. When unsure about a business rule, stop and ask rather than guess.
 
-**Progress:** All 14 steps of the plan are implemented and committed. `internal/httpx/acceptance_test.go` walks the PRD acceptance table (F1–F5) end to end with the clock handed over in UTC.
+**Progress:** All 14 steps of the plan are implemented and committed. `PatrolHub-Fly-Deploy-Plan.md` adds Steps 15–17 (S3 photo storage, Fly.io deploy, client IP behind Fly) with the same conventions. `internal/httpx/acceptance_test.go` walks the PRD acceptance table (F1–F5) end to end with the clock handed over in UTC.
 
 ## Working rules
 
@@ -38,6 +38,7 @@ make check               # generate, css, go vet ./..., go test ./...   (must pa
 make dev                 # air live reload (runs `serve`)
 make build               # generate + css + CGO_ENABLED=0 build -> bin/patrolhub
 make docker              # css, then docker build -t patrolhub:latest .
+make deploy              # css, then fly deploy (see deploy/FLY.md)
 
 go test ./internal/domain -run TestCurrentWindow   # single test
 go test ./internal/domain/... -cover
@@ -94,6 +95,8 @@ Concepts that span several files:
 - **Window defaults from env**: optional `WINDOW_OPEN` / `WINDOW_CLOSE` (HH:MM) are applied by `SettingsService.SeedWindow` at `serve` start, only while `go_live_date` is unset; after go-live the admin-edited DB values win. Parsed in `main` (config cannot import `domain`: import cycle).
 - `deploy/backup.sh` is the cron script (pg_dump custom format + photo tarball, 30-day cleanup); the dump/restore round trip was verified against the dev database.
 - **Docker/deploy**: `Dockerfile` (multi-stage, distroless `:nonroot`, uid 65532, ~17 MB) builds from the **committed** `web/static/css/app.css` — the container cannot reliably download the Tailwind CLI — so run `make css` first or use `make docker`; `make check` also rebuilds the CSS so a stale committed file shows up as a git diff. The image's `ENTRYPOINT` already contains `serve`: run one-off commands with `docker compose exec app /patrolhub create-admin <user>` or `docker run --entrypoint /patrolhub …`. `deploy/` holds the production compose (db + app + Caddy), `Caddyfile`, `.env.example`, `backup.sh`, and a short README with the first-release steps. The photo folder must be owned by uid 65532.
+- **Photo storage** (`internal/storage`): `LocalStore` (disk, `PHOTO_DIR`) or `S3Store` (minio-go) when `BUCKET_NAME` is set, chosen in `main.photoStore`; startup fails if the bucket is missing. The S3 env names are the ones `fly storage create` sets (`BUCKET_NAME`, `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` default `auto`), plus `S3_PATH_STYLE=true` for SeaweedFS/MinIO. Keys are the same relative paths in both stores (`validKey` rejects escaping keys). `S3Store` maps `NoSuchKey` to `fs.ErrNotExist`, reads objects fully in `Open` (photos are ≤1 MB) so a missing key fails there, and bounds every call with a 15 s timeout because `Save` runs inside the report transaction holding the night lock. `storage.ContentType(key)` gives the media type. The contract test (`contract_test.go`) runs for S3 only with `S3_TEST_ENDPOINT` set; the dev SeaweedFS is `docker compose --profile s3 up -d` (credentials `dev`/`dev-secret` from `deploy/dev/seaweedfs-s3.json`).
+- **Fly.io** (`fly.toml`, `deploy/FLY.md`): one always-on machine in `sin` (`auto_stop_machines = "off"`, `min_machines_running = 1`, `fly scale count 1`) because the closer/retention jobs run in-process and the rate limiter is per machine. Postgres is Neon via the **direct** URL (no `-pooler`; `channel_binding=require` is supported by pgx 5.11): through Neon's PgBouncer pooler pgx's statement cache failed on the first deploy with `prepared statement name is already in use (08P01)`; with the pooler, `default_query_exec_mode=exec` would be needed. Photos are in Tigris. `BASE_URL` is in `fly.toml` `[env]`, not a secret. A machine that hit Fly's max restart count stays stopped after a fixed deploy: `fly machine start <id>`. `create-admin` can run locally against the Neon URL; the image has no shell.
 - With `TRUST_PROXY=true` the client IP comes from `realIP` (rightmost `X-Forwarded-For` entry only). chi's `RealIP` is deliberately not used: it trusts `True-Client-IP`/`X-Real-IP` first, which a client can forge through Caddy. The Caddyfile also strips those two headers.
 
 ## Visual design

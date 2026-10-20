@@ -1,0 +1,39 @@
+# Fly.io config for PatrolHub. First release: see deploy/FLY.md.
+# App names are global on Fly: change `app` if "patrolhub" is taken.
+app = "patrolhub"
+primary_region = "sin"
+
+[build]
+  # Builds from the committed web/static/css/app.css: deploy with `make deploy`,
+  # which rebuilds the CSS first.
+  dockerfile = "Dockerfile"
+
+# Secrets (fly secrets set): DATABASE_URL, and the Tigris bucket (BUCKET_NAME,
+# AWS_*) set by `fly storage create`.
+[env]
+  APP_ENV = "production"
+  # The address people open; it is printed on the QR code. Change it together with
+  # `app`, or to the custom domain after `fly certs add`.
+  BASE_URL = "https://patrolhub.fly.dev"
+  HTTP_ADDR = ":8080"
+  TRUST_PROXY = "true"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # The closer (every 5 minutes) and the photo retention job run inside `serve`:
+  # a stopped machine means nights never close. Keep exactly one machine running.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    timeout = "5s"
+    method = "GET"
+    path = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

@@ -19,3 +19,6 @@ build: generate css
 
 docker: css ## image from the committed CSS, refreshed first
 	docker build -t patrolhub:latest .
+
+deploy: css ## Fly.io (fly.toml); the image uses the committed CSS, refreshed first
+	fly deploy

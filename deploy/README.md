@@ -1,5 +1,7 @@
 # Deploying PatrolHub
 
+> Deploying to **Fly.io** instead (Neon Postgres, Tigris photos, no server to manage)? See [FLY.md](FLY.md).
+
 One small VPS (or homelab box) with Docker and a domain pointing at it. HTTPS is required:
 browsers only allow the camera location (GPS) on secure pages.
 
