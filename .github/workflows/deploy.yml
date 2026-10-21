@@ -1,0 +1,22 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main, master]
+
+# Never run two deploys at once; a newer push waits for the running one.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      # The image builds from the committed web/static/css/app.css: run `make css` before pushing.
+      # --ha=false: the closer/retention jobs and rate limiter need exactly one machine.
+      - run: flyctl deploy --remote-only --ha=false
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
