@@ -28,4 +28,17 @@
     toast('Gagal menyimpan, coba lagi.');
     revert(e.detail.elt);
   });
+
+  // Reload when the window closes so the lock modal appears. Server-sent seconds and a
+  // deadline check (not one long setTimeout), so a wrong or sleeping phone clock still works.
+  var reload = document.querySelector('[data-reload-in]');
+  if (reload) {
+    var deadline = Date.now() + (parseInt(reload.dataset.reloadIn, 10) || 0) * 1000;
+    var check = setInterval(function () {
+      if (Date.now() < deadline) return;
+      clearInterval(check);
+      // A small margin so the server is past the closing time too.
+      setTimeout(function () { location.reload(); }, 1500);
+    }, 1000);
+  }
 })();

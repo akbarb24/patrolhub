@@ -72,6 +72,7 @@ templ lockModal(v service.TonightView) {
 
 templ tonightOpen(v service.TonightView) {
 	<div id="toast" role="status" aria-live="polite" class="fixed inset-x-4 bottom-4 z-10 mx-auto hidden max-w-[448px] rounded-2xl border-2 border-black bg-error px-5 py-3 font-semibold text-error-content"></div>
+	<div hidden data-reload-in={ itoa(int64(v.UntilClose.Seconds())) }></div>
 	@card("Tim Ronda", "team-title") {
 		<p class="-mt-2 mb-2 text-sm text-base-content/70">Ketuk nama untuk menandai hadir.</p>
 		@TeamSection(v)

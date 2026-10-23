@@ -81,7 +81,8 @@ func TestTonightPageClosedAndOpen(t *testing.T) {
 	a.now = wibTime(2026, 10, 8, 0, 30) // after midnight: still Wednesday's night
 	body = b.mustGet("/patrol/tonight")
 	contains(t, body, "Tanggal: Rabu, 7 Oktober 2026", `type="checkbox"`, `hx-post="/patrol/tonight/attendance/`, "photo.js", "patrol.js",
-		`capture="environment"`, `accept="image/*"`, "Ajukan Hujan", "0 dari minimal 3 foto", `maxlength="1000"`, "Tambah anggota pengganti", "Dewi (D-4)")
+		`capture="environment"`, `accept="image/*"`, "Ajukan Hujan", "0 dari minimal 3 foto", `maxlength="1000"`, "Tambah anggota pengganti", "Dewi (D-4)",
+		`data-reload-in="19800"`)
 	notContains(t, body, "lock-modal", "lock.js")
 	if n := strings.Count(body, `type="checkbox"`); n != 3 {
 		t.Errorf("checkboxes: %d", n)

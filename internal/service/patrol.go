@@ -67,8 +67,10 @@ type TonightView struct {
 	// locked; UntilOpen is the time left from now (drives the countdown).
 	NextOpensAt time.Time
 	UntilOpen   time.Duration
-	RTName      string
-	WindowOpen  domain.Clock
+	// UntilClose is the time left in an open, unlocked window (drives the reload into the lock modal).
+	UntilClose time.Duration
+	RTName     string
+	WindowOpen domain.Clock
 
 	Team          []TeamRow
 	Situation     string
@@ -136,6 +138,7 @@ func (s *PatrolService) Tonight(ctx context.Context, now time.Time) (TonightView
 			v.NextOpensAt = w.NightDate.AddDays(1).At(set.WindowOpen.Hour, set.WindowOpen.Min)
 			v.UntilOpen = v.NextOpensAt.Sub(now)
 		} else {
+			v.UntilClose = w.ClosesAt.Sub(now)
 			if err := syncTeam(ctx, q, night); err != nil {
 				return err
 			}
