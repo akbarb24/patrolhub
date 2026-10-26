@@ -11,8 +11,8 @@ check: generate css
 	go vet ./...
 	go test ./...
 
-dev: ## live reload
-	air
+dev: ## live reload; loads .env if present (the binary itself reads env only)
+	@if [ -f .env ]; then set -a; . ./.env; set +a; fi; air
 
 build: generate css
 	CGO_ENABLED=0 go build -o bin/patrolhub ./cmd/patrolhub

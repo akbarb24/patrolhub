@@ -27,8 +27,13 @@
   }
 
   // Elements opt in with data-toast; the note autosave has none, so typing stays quiet.
+  // Read it before the request: the swap removes the element, and htmx then fires
+  // afterRequest on a surviving parent with detail.elt pointing at that parent.
+  document.body.addEventListener('htmx:beforeRequest', function (e) {
+    e.detail.xhr.toastMsg = e.detail.elt.dataset.toast;
+  });
   document.body.addEventListener('htmx:afterRequest', function (e) {
-    var msg = e.detail.elt && e.detail.elt.dataset.toast;
+    var msg = e.detail.xhr && e.detail.xhr.toastMsg;
     if (e.detail.successful && msg) toast(msg, true);
   });
 
