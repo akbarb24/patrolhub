@@ -1,20 +1,36 @@
-// Error handling for the report page: show a short message and undo optimistic checkbox changes.
+// Feedback for the report page: a short toast for saves and errors, undoing optimistic checkbox changes on error.
 (function () {
   var timer;
 
-  function toast(msg) {
+  function toast(msg, ok) {
     var el = document.getElementById('toast');
     if (!el) return;
     el.textContent = msg;
+    if (ok) {
+      var check = document.createElement('span');
+      check.setAttribute('aria-hidden', 'true');
+      check.textContent = '✓ ';
+      el.prepend(check);
+    }
+    el.classList.toggle('bg-error', !ok);
+    el.classList.toggle('text-error-content', !ok);
+    el.classList.toggle('bg-primary', !!ok);
+    el.classList.toggle('text-primary-content', !!ok);
     el.classList.remove('hidden');
     clearTimeout(timer);
-    timer = setTimeout(function () { el.classList.add('hidden'); }, 6000);
+    timer = setTimeout(function () { el.classList.add('hidden'); }, ok ? 2500 : 6000);
   }
   window.patrolToast = toast;
 
   function revert(el) {
     if (el && el.type === 'checkbox') el.checked = !el.checked;
   }
+
+  // Elements opt in with data-toast; the note autosave has none, so typing stays quiet.
+  document.body.addEventListener('htmx:afterRequest', function (e) {
+    var msg = e.detail.elt && e.detail.elt.dataset.toast;
+    if (e.detail.successful && msg) toast(msg, true);
+  });
 
   document.body.addEventListener('htmx:responseError', function (e) {
     var xhr = e.detail.xhr;

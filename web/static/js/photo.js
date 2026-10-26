@@ -40,8 +40,8 @@
     });
   }
 
-  function say(msg) {
-    if (window.patrolToast) window.patrolToast(msg);
+  function say(msg, ok) {
+    if (window.patrolToast) window.patrolToast(msg, ok);
   }
 
   input.addEventListener('change', async function () {
@@ -74,6 +74,7 @@
       var list = document.getElementById('photo-list');
       list.outerHTML = html;
       htmx.process(document.getElementById('photo-list'));
+      say('Foto terunggah', true);
     } catch (e) {
       say('Gagal mengunggah foto, coba lagi.');
     } finally {

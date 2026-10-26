@@ -3,6 +3,7 @@
   themes: false;
 }
 @source "../../internal/view";
+@source "../static/js";
 
 /* Design tokens from DESIGN.md: warm neutral canvas, white sticker cards with a
    black outline instead of shadows, pill controls, one blue accent for the

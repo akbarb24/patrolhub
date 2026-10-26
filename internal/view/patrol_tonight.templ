@@ -136,6 +136,7 @@ templ TeamSection(v service.TonightView) {
 				x-cloak
 				class="mt-4 flex gap-2"
 				hx-post="/patrol/tonight/walk-in"
+				data-toast="Anggota ditambahkan"
 				hx-target="#team-section"
 				hx-swap="outerHTML"
 			>
@@ -168,6 +169,7 @@ templ TeamRowItem(r service.TeamRow) {
 				aria-label={ "Hadir: " + r.DisplayName }
 				hx-post={ "/patrol/tonight/attendance/" + itoa(r.MemberID) }
 				hx-trigger="change"
+				data-toast="Kehadiran disimpan"
 				hx-vals={ fmt.Sprintf(`{"present": %t}`, !r.Present) }
 				hx-target="closest li"
 				hx-swap="outerHTML"
@@ -208,6 +210,7 @@ templ RainPanel(v service.TonightView) {
 			type="button"
 			class="btn btn-outline w-full"
 			hx-post="/patrol/tonight/rain"
+			data-toast="Permintaan hujan terkirim"
 			hx-confirm="Ajukan malam ini sebagai hujan? Pengurus akan mengonfirmasi."
 			hx-target="#rain-box"
 			hx-swap="innerHTML"
