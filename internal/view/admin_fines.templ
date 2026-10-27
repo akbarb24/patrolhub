@@ -13,6 +13,7 @@ templ FinesPage(fm service.FineMonth, label, prev, next, today string, form Form
 		<div class="mb-6 flex flex-wrap items-center gap-3">
 			@monthPager(label, "/admin/fines/"+prev, "/admin/fines/"+next)
 			<a class="btn btn-outline ml-auto" href={ templ.SafeURL(fmt.Sprintf("/admin/export/%04d/%02d.csv", fm.Year, int(fm.Month))) }>Ekspor CSV</a>
+			<a class="btn btn-outline" href={ templ.SafeURL(fmt.Sprintf("/admin/export/%04d/%02d.xlsx", fm.Year, int(fm.Month))) }>Ekspor Excel</a>
 		</div>
 		@flashBlock(flash)
 		if form.Errors["_"] != "" {

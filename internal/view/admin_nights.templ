@@ -38,6 +38,7 @@ templ NightsPage(cur, label, prev, next string, onlyReview bool, pending, rows [
 			<div class="flex flex-wrap gap-2 sm:ml-auto">
 				@filterPill(reviewToggle(cur, onlyReview), "Hanya yang perlu ditinjau", onlyReview)
 				<a class="btn btn-outline" href={ templ.SafeURL("/admin/export/" + cur[:4] + "/" + cur[5:] + ".csv") }>Ekspor CSV</a>
+				<a class="btn btn-outline" href={ templ.SafeURL("/admin/export/" + cur[:4] + "/" + cur[5:] + ".xlsx") }>Ekspor Excel</a>
 			</div>
 		</div>
 		<div class="sticker overflow-x-auto p-2">

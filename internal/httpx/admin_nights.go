@@ -250,6 +250,7 @@ func (h adminHandlers) deletePayment(w http.ResponseWriter, r *http.Request) {
 
 func (h adminHandlers) exportRoutes(r chi.Router) {
 	r.Get("/export/{yyyy}/{mm}.csv", h.exportCSV)
+	r.Get("/export/{yyyy}/{mm}.xlsx", h.exportXLSX)
 }
 
 // csvSafe stops spreadsheets from running a cell as a formula: a leading = + - @ or
