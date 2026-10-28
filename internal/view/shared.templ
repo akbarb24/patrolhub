@@ -1,0 +1,27 @@
+package view
+
+import "github.com/akbarbinaji/patrolhub/internal/domain"
+
+// SharedPhotosPage shows one night's photos behind the secret link sent to the WhatsApp
+// group. Photos and the date only: no names, phone numbers, notes or locations.
+templ SharedPhotosPage(token string, date domain.Date, ids []int64) {
+	@PublicLayout("Foto Ronda " + domain.FormatDateID(date)) {
+		@pageTitle("Foto ronda", domain.FormatDateID(date))
+		if len(ids) == 0 {
+			@EmptyState("Foto sudah tidak tersedia.")
+		}
+		<ul class="grid grid-cols-2 gap-4">
+			for i, id := range ids {
+				<li class="sticker p-2">
+					<a href={ templ.SafeURL(sharedPhotoURL(token, id)) } target="_blank" rel="noopener">
+						<img src={ sharedPhotoURL(token, id) } alt={ "Foto ronda " + itoa(int64(i+1)) } loading="lazy" class="aspect-square w-full rounded-2xl object-cover"/>
+					</a>
+				</li>
+			}
+		</ul>
+	}
+}
+
+func sharedPhotoURL(token string, id int64) string {
+	return "/shared/" + token + "/photos/" + itoa(id)
+}

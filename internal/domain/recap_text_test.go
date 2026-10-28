@@ -101,3 +101,43 @@ func TestLabels(t *testing.T) {
 		}
 	}
 }
+
+func TestNightReportText(t *testing.T) {
+	att := []AttendanceRow{{1, "Abc (A-1)", Present, 0}, {2, "Bcde (B-2)", Present, 0}, {3, "C-10", Absent, 5000}}
+	rain := []AttendanceRow{{1, "Abc (A-1)", RainedOut, 0}, {3, "C-10", RainedOut, 0}}
+	absent := []AttendanceRow{{1, "Abc (A-1)", Absent, 5000}}
+	const photos = "https://ronda.example.com/shared/tok"
+	date := Date{2026, 10, 28}
+	lines := func(l ...string) string { return strings.Join(l, "\n") + "\n" }
+
+	tests := []struct {
+		name   string
+		rt     string
+		night  NightRow
+		photos string
+		want   string
+	}{
+		{"reported", "RT 02", NightRow{date, NightReported, "Aman", att}, photos, lines(
+			"ABSEN RONDA RT 02", "Rabu, 28 Okt 2026",
+			"- Abc (A-1): hadir", "- Bcde (B-2): hadir", "- C-10: absen",
+			"Situasi:", "Aman", "Foto:", photos)},
+		{"lower-case RT name, empty note, no photos", " rt 02 ", NightRow{date, NightReported, "  ", att[:1]}, "", lines(
+			"ABSEN RONDA RT 02", "Rabu, 28 Okt 2026", "- Abc (A-1): hadir", "Situasi:", "-", "Foto: -")},
+		{"rained out", "RT 02", NightRow{date, NightRainedOut, "", rain}, "", lines(
+			"ABSEN RONDA RT 02", "Rabu, 28 Okt 2026", "Status: Hujan",
+			"- Abc (A-1): hujan", "- C-10: hujan", "Situasi:", "-", "Foto: -")},
+		{"rain requested", "RT 02", NightRow{date, NightRainRequested, "Hujan deras", att[:1]}, photos, lines(
+			"ABSEN RONDA RT 02", "Rabu, 28 Okt 2026", "Status: Menunggu konfirmasi hujan",
+			"- Abc (A-1): hadir", "Situasi:", "Hujan deras", "Foto:", photos)},
+		{"no report", "RT 02", NightRow{date, NightNoReport, "", absent}, "", lines(
+			"ABSEN RONDA RT 02", "Rabu, 28 Okt 2026", "Status: Tanpa laporan",
+			"- Abc (A-1): absen", "Situasi:", "-", "Foto: -")},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := NightReportText(tc.rt, tc.night, tc.photos); got != tc.want {
+				t.Fatalf("got:\n%s\nwant:\n%s", got, tc.want)
+			}
+		})
+	}
+}

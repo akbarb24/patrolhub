@@ -84,3 +84,42 @@ func TestLoadS3(t *testing.T) {
 		t.Fatalf("got %+v", c.S3)
 	}
 }
+
+func TestLoadWhatsApp(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x")
+	t.Setenv("BASE_URL", "http://localhost:8080")
+	for _, k := range []string{"WA_API_URL", "WA_API_USER", "WA_API_PASS", "WA_GROUP_ID"} {
+		t.Setenv(k, "")
+	}
+	c, err := Load()
+	if err != nil || c.WhatsApp.Enabled() {
+		t.Fatalf("WhatsApp should be off without WA_API_URL: %+v %v", c.WhatsApp, err)
+	}
+
+	t.Setenv("WA_GROUP_ID", "120363000000000000@g.us")
+	for _, bad := range []string{"patrolhub-wa.flycast", "ftp://x"} {
+		t.Setenv("WA_API_URL", bad)
+		if _, err := Load(); err == nil {
+			t.Errorf("url %q: expected error", bad)
+		}
+	}
+
+	t.Setenv("WA_API_URL", "http://patrolhub-wa.flycast")
+	for _, bad := range []string{"", "6281234567890@s.whatsapp.net"} {
+		t.Setenv("WA_GROUP_ID", bad)
+		if _, err := Load(); err == nil {
+			t.Errorf("group %q: expected error", bad)
+		}
+	}
+
+	t.Setenv("WA_GROUP_ID", "120363000000000000@g.us")
+	t.Setenv("WA_API_USER", "patrolhub")
+	t.Setenv("WA_API_PASS", "secret")
+	c, err = Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.WhatsApp.Enabled() || c.WhatsApp.User != "patrolhub" || c.WhatsApp.Password != "secret" {
+		t.Fatalf("got %+v", c.WhatsApp)
+	}
+}

@@ -113,3 +113,39 @@ func finesByMember(nights []NightRow) []memberFine {
 	})
 	return out
 }
+
+// NightReportText is the report of one closed night sent to the WhatsApp group.
+// photosURL links to the night's photos; empty means the night has none.
+func NightReportText(rtName string, n NightRow, photosURL string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "ABSEN RONDA %s\n%s\n", strings.ToUpper(strings.TrimSpace(rtName)), FormatShortDateID(n.Date))
+	if n.Status != NightReported {
+		fmt.Fprintf(&b, "Status: %s\n", NightStatusLabel(n.Status))
+	}
+	for _, a := range n.Attendance {
+		fmt.Fprintf(&b, "- %s: %s\n", a.DisplayName, reportStatus(a.Status))
+	}
+	note := strings.TrimSpace(n.Note)
+	if note == "" {
+		note = "-"
+	}
+	fmt.Fprintf(&b, "Situasi:\n%s\n", note)
+	if photosURL == "" {
+		b.WriteString("Foto: -\n")
+	} else {
+		fmt.Fprintf(&b, "Foto:\n%s\n", photosURL)
+	}
+	return b.String()
+}
+
+func reportStatus(s AttendanceStatus) string {
+	switch s {
+	case Present:
+		return "hadir"
+	case Absent:
+		return "absen"
+	case RainedOut:
+		return "hujan"
+	}
+	return strings.ToLower(string(s))
+}

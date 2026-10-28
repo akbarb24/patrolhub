@@ -42,6 +42,22 @@ func TestFormatDateID(t *testing.T) {
 	}
 }
 
+func TestFormatShortDateID(t *testing.T) {
+	for _, tc := range []struct {
+		d    Date
+		want string
+	}{
+		{Date{2026, 10, 28}, "Rabu, 28 Okt 2026"},
+		{Date{2026, 1, 1}, "Kamis, 1 Jan 2026"},
+		{Date{2026, 8, 17}, "Senin, 17 Agu 2026"},
+		{Date{2026, 12, 31}, "Kamis, 31 Des 2026"},
+	} {
+		if got := FormatShortDateID(tc.d); got != tc.want {
+			t.Errorf("FormatShortDateID(%v) = %q, want %q", tc.d, got, tc.want)
+		}
+	}
+}
+
 func TestNames(t *testing.T) {
 	if MonthNameID(time.September) != "September" || MonthNameID(0) != "" {
 		t.Error("month names")

@@ -20,6 +20,10 @@ type Config struct {
 	// instead of PhotoDir.
 	S3 S3
 
+	// WhatsApp is the GOWA gateway the nightly report is sent through; off when
+	// WhatsApp.Enabled() is false.
+	WhatsApp WhatsApp
+
 	// WindowOpen and WindowClose are optional defaults for the report window,
 	// applied once before go-live (see service.SettingsService.SeedWindow).
 	// Raw HH:MM strings; parsed in main because domain already imports config.
@@ -49,6 +53,9 @@ func Load() (Config, error) {
 		return c, fmt.Errorf("BASE_URL must be an absolute http(s) URL, got %q", c.BaseURL)
 	}
 	if err := c.S3.load(); err != nil {
+		return c, err
+	}
+	if err := c.WhatsApp.load(); err != nil {
 		return c, err
 	}
 	c.WindowOpen = os.Getenv("WINDOW_OPEN")
@@ -86,6 +93,36 @@ func (s *S3) load() error {
 	}
 	if u, err := url.Parse(s.Endpoint); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return fmt.Errorf("AWS_ENDPOINT_URL_S3 must be an absolute http(s) URL, got %q", s.Endpoint)
+	}
+	return nil
+}
+
+// WhatsApp configures the GOWA gateway (deploy/GOWA.md) that posts each closed
+// night's report to the RT's WhatsApp group.
+type WhatsApp struct {
+	URL      string // WA_API_URL, e.g. http://patrolhub-wa.flycast; empty disables the report
+	User     string // WA_API_USER, GOWA basic auth
+	Password string // WA_API_PASS
+	GroupJID string // WA_GROUP_ID, e.g. 120363000000000000@g.us
+}
+
+func (w WhatsApp) Enabled() bool { return w.URL != "" }
+
+func (w *WhatsApp) load() error {
+	*w = WhatsApp{
+		URL:      os.Getenv("WA_API_URL"),
+		User:     os.Getenv("WA_API_USER"),
+		Password: os.Getenv("WA_API_PASS"),
+		GroupJID: os.Getenv("WA_GROUP_ID"),
+	}
+	if !w.Enabled() {
+		return nil
+	}
+	if u, err := url.Parse(w.URL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return fmt.Errorf("WA_API_URL must be an absolute http(s) URL, got %q", w.URL)
+	}
+	if !strings.HasSuffix(w.GroupJID, "@g.us") {
+		return fmt.Errorf("WA_API_URL is set, so WA_GROUP_ID must be a group JID ending in @g.us, got %q", w.GroupJID)
 	}
 	return nil
 }

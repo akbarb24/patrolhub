@@ -42,3 +42,19 @@ ORDER BY patrol_date;
 
 -- name: ListNightsByStatus :many
 SELECT * FROM patrol_night WHERE status = $1 ORDER BY patrol_date DESC;
+
+-- name: ListNightsToNotify :many
+SELECT * FROM patrol_night
+WHERE closed_at IS NOT NULL AND wa_sent_at IS NULL AND closed_at > sqlc.arg(closed_after)::timestamptz
+ORDER BY patrol_date;
+
+-- name: EnsureShareToken :one
+UPDATE patrol_night SET share_token = COALESCE(share_token, $2)
+WHERE id = $1
+RETURNING share_token;
+
+-- name: MarkWhatsAppSent :exec
+UPDATE patrol_night SET wa_sent_at = $2 WHERE id = $1;
+
+-- name: GetNightByShareToken :one
+SELECT * FROM patrol_night WHERE share_token = $1;

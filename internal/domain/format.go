@@ -8,6 +8,8 @@ import (
 
 var weekdayID = [...]string{"Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"}
 
+var monthShortID = [...]string{"Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"}
+
 var monthID = [...]string{
 	"Januari", "Februari", "Maret", "April", "Mei", "Juni",
 	"Juli", "Agustus", "September", "Oktober", "November", "Desember",
@@ -58,4 +60,9 @@ func FormatRupiah(n int) string {
 // FormatDateID renders e.g. "Rabu, 7 Oktober 2026".
 func FormatDateID(d Date) string {
 	return WeekdayNameID(d.ISOWeekday()) + ", " + strconv.Itoa(d.Day) + " " + MonthNameID(d.Month) + " " + strconv.Itoa(d.Year)
+}
+
+// FormatShortDateID renders e.g. "Rabu, 28 Okt 2026".
+func FormatShortDateID(d Date) string {
+	return WeekdayNameID(d.ISOWeekday()) + ", " + strconv.Itoa(d.Day) + " " + monthShortID[d.Month-1] + " " + strconv.Itoa(d.Year)
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/akbarbinaji/patrolhub/internal/domain"
 	"github.com/akbarbinaji/patrolhub/internal/httpx"
 	"github.com/akbarbinaji/patrolhub/internal/job"
+	"github.com/akbarbinaji/patrolhub/internal/notify"
 	"github.com/akbarbinaji/patrolhub/internal/service"
 	"github.com/akbarbinaji/patrolhub/internal/storage"
 	"github.com/akbarbinaji/patrolhub/migrations"
@@ -152,7 +153,7 @@ func serve(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	go (&job.Closer{Service: service.NewClosingService(pool, settings)}).Run(ctx)
+	go (&job.Closer{Service: service.NewClosingService(pool, settings), Reports: reportService(pool, settings, cfg)}).Run(ctx)
 	go (&job.Retention{Service: service.NewRetentionService(pool, photos)}).Run(ctx)
 
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
@@ -184,4 +185,15 @@ func photoStore(ctx context.Context, cfg config.Config) (storage.PhotoStore, err
 	}
 	slog.Info("photo store", "kind", "s3", "endpoint", cfg.S3.Endpoint, "bucket", cfg.S3.Bucket)
 	return s, nil
+}
+
+// reportService sends closed nights to the WhatsApp group through GOWA; nil when
+// WA_API_URL is not set.
+func reportService(pool *pgxpool.Pool, settings *service.SettingsService, cfg config.Config) *service.ReportService {
+	if !cfg.WhatsApp.Enabled() {
+		slog.Info("whatsapp report", "enabled", false)
+		return nil
+	}
+	slog.Info("whatsapp report", "enabled", true, "gateway", cfg.WhatsApp.URL)
+	return service.NewReportService(pool, settings, notify.NewGOWA(cfg.WhatsApp), cfg.BaseURL)
 }

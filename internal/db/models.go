@@ -69,6 +69,8 @@ type PatrolNight struct {
 	FineRate        *int32             `json:"fine_rate"`
 	NeedsReview     bool               `json:"needs_review"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ShareToken      *string            `json:"share_token"`
+	WaSentAt        pgtype.Timestamptz `json:"wa_sent_at"`
 }
 
 type PatrolPhoto struct {

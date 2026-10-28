@@ -1,0 +1,44 @@
+# WhatsApp gateway (GOWA) for PatrolHub. Private only: reachable at
+# http://weabot.flycast from the patrolhub app, never from the internet.
+app = "weabot"
+primary_region = "sin"
+
+[build]
+  image = "ghcr.io/aldinokemal/go-whatsapp-web-multidevice:v9.7.0"
+
+[processes]
+  app = "rest"
+
+[env]
+  APP_PORT = "3000"
+  # Disables MCP; not needed.
+  MCP_ENABLED = "false"
+  # Stop the UI downloading new HTML from GitHub at runtime; the image tag is the version.
+  # APP_UI_AUTO_UPDATE = "false"
+  # The number sits in the RT group: without this every photo posted there fills the volume.
+  WHATSAPP_AUTO_DOWNLOAD_MEDIA = "false"
+
+[mounts]
+  source = "weabot_data"
+  destination = "/app/storages"
+
+[http_service]
+  internal_port = 3000
+  # Flycast is plain HTTP on port 80; an https redirect would break it.
+  force_https = false
+  # Keep the WhatsApp connection alive; a long-offline linked device gets logged out.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    timeout = "5s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

@@ -84,6 +84,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 			http.Redirect(w, r, "/recap", http.StatusFound)
 		})
 		r.Mount("/recap", recapRoutes(d))
+		r.Mount("/shared", sharedRoutes(d))
 
 		r.Mount("/patrol/tonight", patrolRoutes(d))
 		r.Mount("/admin", adminRoutes(d))

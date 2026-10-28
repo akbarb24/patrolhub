@@ -9,15 +9,22 @@ import (
 	"github.com/akbarbinaji/patrolhub/internal/service"
 )
 
-// Closer closes finished patrol nights every five minutes.
+// Closer closes finished patrol nights every five minutes, then sends the closed
+// nights' reports to the WhatsApp group when Reports is set.
 type Closer struct {
 	Service  *service.ClosingService
-	Interval time.Duration // defaults to five minutes
+	Reports  *service.ReportService // nil: no WhatsApp report
+	Interval time.Duration          // defaults to five minutes
 }
 
 func (c *Closer) tick(ctx context.Context, now time.Time) {
 	if _, err := c.Service.Tick(ctx, now); err != nil {
 		slog.Error("closer tick failed", "err", err)
+	}
+	if c.Reports != nil {
+		if err := c.Reports.Tick(ctx, now); err != nil {
+			slog.Error("whatsapp report tick failed", "err", err)
+		}
 	}
 }
 
