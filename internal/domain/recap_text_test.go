@@ -124,11 +124,9 @@ func TestNightReportText(t *testing.T) {
 		{"lower-case RT name, empty note, no photos", " rt 02 ", NightRow{date, NightReported, "  ", att[:1]}, "", lines(
 			"ABSEN RONDA RT 02", "Rabu, 28 Okt 2026", "- Abc (A-1): hadir", "Situasi:", "-", "Foto: -")},
 		{"rained out", "RT 02", NightRow{date, NightRainedOut, "", rain}, "", lines(
-			"ABSEN RONDA RT 02", "Rabu, 28 Okt 2026", "Status: Hujan",
-			"- Abc (A-1): hujan", "- C-10: hujan", "Situasi:", "-", "Foto: -")},
+			"ABSEN RONDA RT 02", "Rabu, 28 Okt 2026", "Status: Hujan")},
 		{"rain requested", "RT 02", NightRow{date, NightRainRequested, "Hujan deras", att[:1]}, photos, lines(
-			"ABSEN RONDA RT 02", "Rabu, 28 Okt 2026", "Status: Menunggu konfirmasi hujan",
-			"- Abc (A-1): hadir", "Situasi:", "Hujan deras", "Foto:", photos)},
+			"ABSEN RONDA RT 02", "Rabu, 28 Okt 2026", "Status: Hujan")},
 		{"no report", "RT 02", NightRow{date, NightNoReport, "", absent}, "", lines(
 			"ABSEN RONDA RT 02", "Rabu, 28 Okt 2026", "Status: Tanpa laporan",
 			"- Abc (A-1): absen", "Situasi:", "-", "Foto: -")},

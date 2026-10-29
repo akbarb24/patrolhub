@@ -116,9 +116,15 @@ func finesByMember(nights []NightRow) []memberFine {
 
 // NightReportText is the report of one closed night sent to the WhatsApp group.
 // photosURL links to the night's photos; empty means the night has none.
+// A rain night (requested or confirmed) gets only the header and its status.
 func NightReportText(rtName string, n NightRow, photosURL string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "ABSEN RONDA %s\n%s\n", strings.ToUpper(strings.TrimSpace(rtName)), FormatShortDateID(n.Date))
+	if n.Status == NightRainRequested || n.Status == NightRainedOut {
+		// a rain request is announced as rain without waiting for the admin's confirmation
+		fmt.Fprintf(&b, "Status: %s\n", NightStatusLabel(NightRainedOut))
+		return b.String()
+	}
 	if n.Status != NightReported {
 		fmt.Fprintf(&b, "Status: %s\n", NightStatusLabel(n.Status))
 	}

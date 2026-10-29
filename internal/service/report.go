@@ -79,17 +79,20 @@ func (s *ReportService) send(ctx context.Context, q *db.Queries, n db.PatrolNigh
 	}
 
 	photosURL := ""
-	photos, err := q.CountPhotosByNight(ctx, n.ID)
-	if err != nil {
-		return err
-	}
-	if photos > 0 {
-		fresh := rand.Text()
-		token, err := q.EnsureShareToken(ctx, db.EnsureShareTokenParams{ID: n.ID, ShareToken: &fresh})
+	// rain reports carry no photo link, so they need no share token
+	if row.Status != domain.NightRainRequested && row.Status != domain.NightRainedOut {
+		photos, err := q.CountPhotosByNight(ctx, n.ID)
 		if err != nil {
 			return err
 		}
-		photosURL = s.baseURL + "/shared/" + deref(token)
+		if photos > 0 {
+			fresh := rand.Text()
+			token, err := q.EnsureShareToken(ctx, db.EnsureShareTokenParams{ID: n.ID, ShareToken: &fresh})
+			if err != nil {
+				return err
+			}
+			photosURL = s.baseURL + "/shared/" + deref(token)
+		}
 	}
 
 	if err := s.msg.SendGroup(ctx, domain.NightReportText(rtName, row, photosURL)); err != nil {

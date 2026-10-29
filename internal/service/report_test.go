@@ -86,6 +86,25 @@ func TestReportRetriedAfterFailedSend(t *testing.T) {
 	}
 }
 
+func TestReportRainNightHasNoPhotoLink(t *testing.T) {
+	e, reports, msg := newReportEnv(t)
+	ctx := context.Background()
+	e.patrol.UpdateSituation(ctx, wed2230, "Hujan deras", rc)
+	e.patrol.RequestRain(ctx, wed2230, rc)
+	e.addPhotos(wedNight, 3)
+	e.tick(afterWed)
+
+	if err := reports.Tick(ctx, afterWed); err != nil || len(msg.sent) != 1 {
+		t.Fatalf("sent %d %v", len(msg.sent), err)
+	}
+	if want := "ABSEN RONDA RT 02\nRabu, 7 Okt 2026\nStatus: Hujan\n"; msg.sent[0] != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", msg.sent[0], want)
+	}
+	if n := e.night(wedNight); n.ShareToken != nil {
+		t.Fatalf("token for a rain night: %s", *n.ShareToken)
+	}
+}
+
 func TestReportSkipsNightsClosedLongAgo(t *testing.T) {
 	e, reports, msg := newReportEnv(t)
 	e.tick(afterWed)
