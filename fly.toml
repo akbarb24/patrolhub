@@ -18,6 +18,13 @@ primary_region = "sin"
   HTTP_ADDR = ":8080"
   TRUST_PROXY = "true"
 
+# Runs `patrolhub migrate` on a temporary machine (same image, env and secrets) before
+# the new release replaces the running one; a failed migration aborts the deploy and
+# leaves the old release running. `serve` still migrates on start (a no-op by then).
+[deploy]
+  release_command = "migrate"
+  release_command_timeout = "5m"
+
 [http_service]
   internal_port = 8080
   force_https = true

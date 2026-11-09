@@ -17,6 +17,10 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
       # The image builds from the committed web/static/css/app.css: run `make css` before pushing.
       # --ha=false: the closer/retention jobs and rate limiter need exactly one machine.
-      - run: flyctl deploy --remote-only --ha=false
+      # Migrations run first through fly.toml's [deploy] release_command (`patrolhub migrate`
+      # on a temporary machine with the app's secrets); if they fail, the deploy stops and the
+      # running release is left untouched.
+      - name: Migrate and deploy
+        run: flyctl deploy --remote-only --ha=false
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

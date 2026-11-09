@@ -55,7 +55,8 @@ The Caddy/compose setup in [README.md](README.md) remains the self-hosted altern
    fly status           # one machine in sin, check passing
    ```
 
-   The app migrates the database on start. `fly logs` should show `photo store kind=s3`.
+   Each deploy first runs `patrolhub migrate` on a temporary machine (`[deploy] release_command`
+   in `fly.toml`); a failed migration stops the deploy. `serve` also migrates on start. `fly logs` should show `photo store kind=s3`.
 
 6. **First admin.** Neon is reachable from anywhere, so the simplest way is from your own machine
    with the same `DATABASE_URL` (the password is read from the terminal):

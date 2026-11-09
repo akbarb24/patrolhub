@@ -25,4 +25,7 @@ COPY --from=build --chown=65532:65532 /out/data /data
 ENV HTTP_ADDR=:8080 PHOTO_DIR=/data/photos
 USER 65532:65532
 EXPOSE 8080
-ENTRYPOINT ["/patrolhub", "serve"]
+# `serve` is the default argument, not part of the entrypoint, so one-off commands
+# (Fly's release_command `migrate`, `docker run … create-admin <user>`) can replace it.
+ENTRYPOINT ["/patrolhub"]
+CMD ["serve"]
