@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"sort"
 	"time"
 	"unicode/utf8"
@@ -28,6 +29,8 @@ var (
 	ErrTooManyPhotos = errors.New("photo limit reached")
 	ErrPhotoTooLarge = errors.New("photo is too large")
 	ErrBadImageType  = errors.New("unsupported image type")
+	ErrNoSituation   = errors.New("situation note is empty")
+	ErrTooFewPhotos  = errors.New("not enough photos to submit")
 )
 
 const (
@@ -59,10 +62,14 @@ type Candidate struct {
 
 // TonightView is everything the report page shows.
 type TonightView struct {
-	Open      bool // inside the report window
-	Locked    bool // open window, but nothing can be edited (rain-out or already closed)
-	NightDate domain.Date
-	OpensAt   time.Time
+	Open   bool // inside the report window
+	Locked bool // open window, but nothing can be edited (submitted, rain requested/out, or already closed)
+	// Submitted: the report was sent tonight; with RainRequested it is the reason for
+	// Locked while the night is still open, and the page shows a read-only summary.
+	Submitted   bool
+	SubmittedAt time.Time
+	NightDate   domain.Date
+	OpensAt     time.Time
 	// NextOpensAt is when reporting is next possible while the page is closed or
 	// locked; UntilOpen is the time left from now (drives the countdown).
 	NextOpensAt time.Time
@@ -99,8 +106,21 @@ func openNight(ctx context.Context, q *db.Queries, date domain.Date) (db.PatrolN
 	return q.GetNightByDateForUpdate(ctx, pgDate(date))
 }
 
-func nightLocked(n db.PatrolNight) bool {
+// nightClosed: the night is over for reporters (closed by the job or rained out).
+func nightClosed(n db.PatrolNight) bool {
 	return n.ClosedAt.Valid || n.Status == string(domain.NightRainedOut)
+}
+
+// nightLocked: reporters can no longer change anything: the night is closed, the
+// report was submitted, or rain was requested.
+func nightLocked(n db.PatrolNight) bool {
+	return nightClosed(n) || n.SubmittedAt.Valid || n.Status == string(domain.NightRainRequested)
+}
+
+// Summary reports whether the open-window page should show the read-only summary
+// (submitted or rain requested) instead of the closed lock modal.
+func (v TonightView) Summary() bool {
+	return v.Open && v.Locked && (v.Submitted || v.RainRequested)
 }
 
 // Tonight builds the report page. Inside the window it also creates the night and
@@ -134,11 +154,17 @@ func (s *PatrolService) Tonight(ctx context.Context, now time.Time) (TonightView
 			return err
 		}
 		v.Locked = nightLocked(night)
-		if v.Locked {
+		v.Submitted = night.SubmittedAt.Valid
+		if v.Submitted {
+			v.SubmittedAt = night.SubmittedAt.Time
+		}
+		if nightClosed(night) {
 			v.NextOpensAt = w.NightDate.AddDays(1).At(set.WindowOpen.Hour, set.WindowOpen.Min)
 			v.UntilOpen = v.NextOpensAt.Sub(now)
 		} else {
 			v.UntilClose = w.ClosesAt.Sub(now)
+		}
+		if !v.Locked {
 			if err := syncTeam(ctx, q, night); err != nil {
 				return err
 			}
@@ -213,8 +239,7 @@ type writeCtx struct {
 }
 
 // write runs one reporter action inside the open window: it locks the night, syncs
-// the team, runs fn, records the first report time and writes the audit entry,
-// all in one transaction.
+// the team, runs fn and writes the audit entry, all in one transaction.
 func (s *PatrolService) write(ctx context.Context, now time.Time, rc ReportContext, fn func(w writeCtx) (audit, error)) error {
 	set, err := s.settings.Load(ctx)
 	if err != nil {
@@ -239,10 +264,6 @@ func (s *PatrolService) write(ctx context.Context, now time.Time, rc ReportConte
 		if err != nil {
 			return err
 		}
-		if err := q.MarkReported(ctx, db.MarkReportedParams{ID: night.ID, FirstReportedAt: pgTime(now)}); err != nil {
-			return err
-		}
-
 		if a.entity == "" {
 			a.entity, a.id = "patrol_night", night.ID
 		}
@@ -265,48 +286,97 @@ func truncate(s string, n int) string {
 	return s[:n]
 }
 
-// ToggleAttendance marks a team member present or absent and returns the updated row.
-func (s *PatrolService) ToggleAttendance(ctx context.Context, now time.Time, memberID int64, present bool, rc ReportContext) (TeamRow, error) {
-	var row TeamRow
-	err := s.write(ctx, now, rc, func(w writeCtx) (audit, error) {
+// SubmitInput is the report form: the note, the team members ticked present, and
+// members added as walk-ins (they count as present).
+type SubmitInput struct {
+	Note    string
+	Present []int64
+	WalkIns []int64
+}
+
+// Submit saves the whole report at once and locks it: attendance for the team
+// (unticked = absent), walk-ins and the situation note. It needs a note and at least
+// min_photos photos. After it the report cannot be changed by reporters.
+func (s *PatrolService) Submit(ctx context.Context, now time.Time, in SubmitInput, rc ReportContext) error {
+	note := trimSpace(in.Note)
+	if utf8.RuneCountInString(note) > maxSituationRunes {
+		return ErrTooLong
+	}
+	if note == "" {
+		return ErrNoSituation
+	}
+	return s.write(ctx, now, rc, func(w writeCtx) (audit, error) {
+		photos, err := w.q.CountPhotosByNight(ctx, w.night.ID)
+		if err != nil {
+			return audit{}, err
+		}
+		if int(photos) < w.set.MinPhotos {
+			return audit{}, ErrTooFewPhotos
+		}
 		rows, err := attendanceRows(ctx, w.q, w.night.ID)
 		if err != nil {
 			return audit{}, err
 		}
-		found := false
+		onTeam := make(map[int64]bool, len(rows))
 		for _, r := range rows {
-			if r.MemberID == memberID {
-				row, found = r, true
+			onTeam[r.MemberID] = true
+		}
+
+		walkIns := uniq(in.WalkIns)
+		for _, id := range walkIns {
+			if onTeam[id] {
+				return audit{}, ErrAlreadyInTeam
+			}
+			m, err := w.q.GetMember(ctx, id)
+			if err != nil || !m.Active {
+				return audit{}, ErrNotInTeam
+			}
+			err = w.q.UpsertAttendance(ctx, db.UpsertAttendanceParams{
+				NightID: w.night.ID, MemberID: id, Status: string(domain.Present), Source: string(domain.SourceWalkIn),
+			})
+			if err != nil {
+				return audit{}, err
 			}
 		}
-		if !found {
-			return audit{}, ErrNotInTeam
-		}
-		status := domain.Absent
-		if present {
-			status = domain.Present
-		}
-		if err := w.q.SetAttendanceStatus(ctx, db.SetAttendanceStatusParams{NightID: w.night.ID, MemberID: memberID, Status: string(status)}); err != nil {
-			return audit{}, err
-		}
-		row.Present = present
-		return audit{action: "toggle_attendance", detail: map[string]any{"member_id": memberID, "present": present}}, nil
-	})
-	return row, err
-}
 
-// UpdateSituation replaces the situation note (at most 1,000 characters).
-func (s *PatrolService) UpdateSituation(ctx context.Context, now time.Time, note string, rc ReportContext) error {
-	note = trimSpace(note)
-	if utf8.RuneCountInString(note) > maxSituationRunes {
-		return ErrTooLong
-	}
-	return s.write(ctx, now, rc, func(w writeCtx) (audit, error) {
+		present := uniq(in.Present)
+		presentSet := make(map[int64]bool, len(present))
+		for _, id := range present {
+			if !onTeam[id] && !slices.Contains(walkIns, id) {
+				return audit{}, ErrNotInTeam
+			}
+			presentSet[id] = true
+		}
+		for _, r := range rows {
+			status := domain.Absent
+			if presentSet[r.MemberID] {
+				status = domain.Present
+			}
+			if err := w.q.SetAttendanceStatus(ctx, db.SetAttendanceStatusParams{NightID: w.night.ID, MemberID: r.MemberID, Status: string(status)}); err != nil {
+				return audit{}, err
+			}
+		}
+
 		if err := w.q.UpdateSituation(ctx, db.UpdateSituationParams{ID: w.night.ID, SituationNote: note}); err != nil {
 			return audit{}, err
 		}
-		return audit{action: "update_situation", detail: map[string]any{"length": utf8.RuneCountInString(note)}}, nil
+		if err := w.q.SubmitNight(ctx, db.SubmitNightParams{ID: w.night.ID, SubmittedAt: pgTime(now)}); err != nil {
+			return audit{}, err
+		}
+		return audit{action: "submit_report", detail: map[string]any{
+			"present": present, "walk_ins": walkIns, "note_length": utf8.RuneCountInString(note), "photos": photos,
+		}}, nil
 	})
+}
+
+func uniq(ids []int64) []int64 {
+	out := []int64{}
+	for _, id := range ids {
+		if !slices.Contains(out, id) {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 func trimSpace(s string) string { return string(bytes.TrimSpace([]byte(s))) }
@@ -351,6 +421,9 @@ func (s *PatrolService) AddPhoto(ctx context.Context, now time.Time, file io.Rea
 			return audit{}, err
 		}
 		savedKey = key
+		if err := w.q.MarkReported(ctx, db.MarkReportedParams{ID: w.night.ID, FirstReportedAt: pgTime(now)}); err != nil {
+			return audit{}, err
+		}
 		p, err := w.q.InsertPhoto(ctx, db.InsertPhotoParams{
 			NightID: w.night.ID, StorageKey: key, TakenAt: pgTime(now), Latitude: lat, Longitude: lng, SizeBytes: int32(len(data)),
 		})
@@ -366,42 +439,18 @@ func (s *PatrolService) AddPhoto(ctx context.Context, now time.Time, file io.Rea
 	return item, err
 }
 
-// RequestRain asks the admins to confirm a rained-out night. It cannot be withdrawn.
+// RequestRain asks the admins to confirm a rained-out night. It cannot be withdrawn
+// and locks the report (a second request fails with ErrNightClosed).
 func (s *PatrolService) RequestRain(ctx context.Context, now time.Time, rc ReportContext) error {
 	return s.write(ctx, now, rc, func(w writeCtx) (audit, error) {
-		if w.night.Status != string(domain.NightRainRequested) {
-			err := w.q.SetNightStatus(ctx, db.SetNightStatusParams{ID: w.night.ID, Status: string(domain.NightRainRequested), RainRequestedAt: pgTime(now)})
-			if err != nil {
-				return audit{}, err
-			}
+		err := w.q.SetNightStatus(ctx, db.SetNightStatusParams{ID: w.night.ID, Status: string(domain.NightRainRequested), RainRequestedAt: pgTime(now)})
+		if err != nil {
+			return audit{}, err
+		}
+		if err := w.q.MarkReported(ctx, db.MarkReportedParams{ID: w.night.ID, FirstReportedAt: pgTime(now)}); err != nil {
+			return audit{}, err
 		}
 		return audit{action: "request_rain"}, nil
-	})
-}
-
-// AddWalkIn adds an active member who joined outside the schedule; they count as present.
-func (s *PatrolService) AddWalkIn(ctx context.Context, now time.Time, memberID int64, rc ReportContext) error {
-	return s.write(ctx, now, rc, func(w writeCtx) (audit, error) {
-		m, err := w.q.GetMember(ctx, memberID)
-		if err != nil || !m.Active {
-			return audit{}, ErrNotInTeam
-		}
-		rows, err := attendanceRows(ctx, w.q, w.night.ID)
-		if err != nil {
-			return audit{}, err
-		}
-		for _, r := range rows {
-			if r.MemberID == memberID {
-				return audit{}, ErrAlreadyInTeam
-			}
-		}
-		err = w.q.UpsertAttendance(ctx, db.UpsertAttendanceParams{
-			NightID: w.night.ID, MemberID: memberID, Status: string(domain.Present), Source: string(domain.SourceWalkIn),
-		})
-		if err != nil {
-			return audit{}, err
-		}
-		return audit{action: "add_walk_in", detail: map[string]any{"member_id": memberID}}, nil
 	})
 }
 

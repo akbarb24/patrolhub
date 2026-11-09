@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
@@ -44,22 +45,37 @@ func TestOversizedFormsAreRejected(t *testing.T) {
 	}
 }
 
-func forwarded(b *browser, path string, ip string) {
+// auditedWrite uploads a photo (an audited reporter write) with extra request headers.
+func auditedWrite(b *browser, headers map[string]string) {
 	b.t.Helper()
 	_, page := b.do("GET", "/patrol/tonight", nil)
 	m := hxToken.FindStringSubmatch(page)
 	if m == nil {
 		b.t.Fatal("no token")
 	}
-	b.doRaw("POST", path, strings.NewReader("note=halo"), map[string]string{
-		"X-CSRF-Token": m[1], "Content-Type": "application/x-www-form-urlencoded", "X-Forwarded-For": ip,
-	})
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	fw, _ := mw.CreateFormFile("photo", "photo.jpg")
+	fw.Write(fakeJPEG(20))
+	mw.Close()
+	h := map[string]string{"X-CSRF-Token": m[1], "Content-Type": mw.FormDataContentType()}
+	for k, v := range headers {
+		h[k] = v
+	}
+	if resp, body := b.doRaw("POST", "/patrol/tonight/photos", &buf, h); resp.StatusCode != http.StatusOK {
+		b.t.Fatalf("upload: %d %s", resp.StatusCode, body)
+	}
+}
+
+func forwarded(b *browser, ip string) {
+	b.t.Helper()
+	auditedWrite(b, map[string]string{"X-Forwarded-For": ip})
 }
 
 func auditIP(t *testing.T, a *app) string {
 	t.Helper()
 	var ip string
-	if err := a.pool.QueryRow(context.Background(), `SELECT ip FROM audit_log WHERE action = 'update_situation' ORDER BY id DESC LIMIT 1`).Scan(&ip); err != nil {
+	if err := a.pool.QueryRow(context.Background(), `SELECT ip FROM audit_log WHERE action = 'upload_photo' ORDER BY id DESC LIMIT 1`).Scan(&ip); err != nil {
 		t.Fatal(err)
 	}
 	return ip
@@ -71,13 +87,13 @@ func TestForwardedForIsIgnoredUnlessProxyIsTrusted(t *testing.T) {
 		return a, a.anonymous()
 	}
 	a, b := setup(false)
-	forwarded(b, "/patrol/tonight/situation", "198.51.100.77")
+	forwarded(b, "198.51.100.77")
 	if got := auditIP(t, a); got != "127.0.0.1" {
 		t.Fatalf("TRUST_PROXY=false recorded %q", got)
 	}
 
 	a, b = setup(true)
-	forwarded(b, "/patrol/tonight/situation", "198.51.100.77")
+	forwarded(b, "198.51.100.77")
 	if got := auditIP(t, a); got != "198.51.100.77" {
 		t.Fatalf("TRUST_PROXY=true recorded %q", got)
 	}
@@ -125,10 +141,7 @@ func TestRequestLogsNeverContainSecrets(t *testing.T) {
 func TestRealIPUsesOnlyTheProxyEntry(t *testing.T) {
 	a := newApp(t, wibTime(2026, 10, 7, 22, 30), func(d *Deps) { d.Config.TrustProxy = true })
 	b := a.anonymous()
-	_, page := b.do("GET", "/patrol/tonight", nil)
-	token := hxToken.FindStringSubmatch(page)[1]
-	b.doRaw("POST", "/patrol/tonight/situation", strings.NewReader("note=halo"), map[string]string{
-		"X-CSRF-Token": token, "Content-Type": "application/x-www-form-urlencoded",
+	auditedWrite(b, map[string]string{
 		// A client-supplied entry comes first; the proxy appended the real one last.
 		"X-Forwarded-For": "6.6.6.6, 198.51.100.77", "X-Real-IP": "7.7.7.7", "True-Client-IP": "8.8.8.8",
 	})
@@ -137,9 +150,7 @@ func TestRealIPUsesOnlyTheProxyEntry(t *testing.T) {
 	}
 
 	// Garbage in the header is ignored instead of becoming the address.
-	b.doRaw("POST", "/patrol/tonight/situation", strings.NewReader("note=halo2"), map[string]string{
-		"X-CSRF-Token": token, "Content-Type": "application/x-www-form-urlencoded", "X-Forwarded-For": "not-an-ip",
-	})
+	auditedWrite(b, map[string]string{"X-Forwarded-For": "not-an-ip"})
 	if got := auditIP(t, a); got != "127.0.0.1" {
 		t.Fatalf("recorded %q", got)
 	}

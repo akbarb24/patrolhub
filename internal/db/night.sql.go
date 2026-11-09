@@ -55,7 +55,7 @@ func (q *Queries) EnsureShareToken(ctx context.Context, arg EnsureShareTokenPara
 }
 
 const getNightByDate = `-- name: GetNightByDate :one
-SELECT id, patrol_date, status, situation_note, first_reported_at, rain_requested_at, closed_at, fine_rate, needs_review, created_at, share_token, wa_sent_at FROM patrol_night WHERE patrol_date = $1
+SELECT id, patrol_date, status, situation_note, first_reported_at, rain_requested_at, closed_at, fine_rate, needs_review, created_at, share_token, wa_sent_at, submitted_at FROM patrol_night WHERE patrol_date = $1
 `
 
 func (q *Queries) GetNightByDate(ctx context.Context, patrolDate pgtype.Date) (PatrolNight, error) {
@@ -74,12 +74,13 @@ func (q *Queries) GetNightByDate(ctx context.Context, patrolDate pgtype.Date) (P
 		&i.CreatedAt,
 		&i.ShareToken,
 		&i.WaSentAt,
+		&i.SubmittedAt,
 	)
 	return i, err
 }
 
 const getNightByDateForUpdate = `-- name: GetNightByDateForUpdate :one
-SELECT id, patrol_date, status, situation_note, first_reported_at, rain_requested_at, closed_at, fine_rate, needs_review, created_at, share_token, wa_sent_at FROM patrol_night WHERE patrol_date = $1 FOR UPDATE
+SELECT id, patrol_date, status, situation_note, first_reported_at, rain_requested_at, closed_at, fine_rate, needs_review, created_at, share_token, wa_sent_at, submitted_at FROM patrol_night WHERE patrol_date = $1 FOR UPDATE
 `
 
 func (q *Queries) GetNightByDateForUpdate(ctx context.Context, patrolDate pgtype.Date) (PatrolNight, error) {
@@ -98,12 +99,13 @@ func (q *Queries) GetNightByDateForUpdate(ctx context.Context, patrolDate pgtype
 		&i.CreatedAt,
 		&i.ShareToken,
 		&i.WaSentAt,
+		&i.SubmittedAt,
 	)
 	return i, err
 }
 
 const getNightByShareToken = `-- name: GetNightByShareToken :one
-SELECT id, patrol_date, status, situation_note, first_reported_at, rain_requested_at, closed_at, fine_rate, needs_review, created_at, share_token, wa_sent_at FROM patrol_night WHERE share_token = $1
+SELECT id, patrol_date, status, situation_note, first_reported_at, rain_requested_at, closed_at, fine_rate, needs_review, created_at, share_token, wa_sent_at, submitted_at FROM patrol_night WHERE share_token = $1
 `
 
 func (q *Queries) GetNightByShareToken(ctx context.Context, shareToken *string) (PatrolNight, error) {
@@ -122,6 +124,7 @@ func (q *Queries) GetNightByShareToken(ctx context.Context, shareToken *string) 
 		&i.CreatedAt,
 		&i.ShareToken,
 		&i.WaSentAt,
+		&i.SubmittedAt,
 	)
 	return i, err
 }
@@ -137,7 +140,7 @@ func (q *Queries) InsertNightIfMissing(ctx context.Context, patrolDate pgtype.Da
 }
 
 const listNightsBetween = `-- name: ListNightsBetween :many
-SELECT id, patrol_date, status, situation_note, first_reported_at, rain_requested_at, closed_at, fine_rate, needs_review, created_at, share_token, wa_sent_at FROM patrol_night
+SELECT id, patrol_date, status, situation_note, first_reported_at, rain_requested_at, closed_at, fine_rate, needs_review, created_at, share_token, wa_sent_at, submitted_at FROM patrol_night
 WHERE patrol_date BETWEEN $1::date AND $2::date
 ORDER BY patrol_date
 `
@@ -169,6 +172,7 @@ func (q *Queries) ListNightsBetween(ctx context.Context, arg ListNightsBetweenPa
 			&i.CreatedAt,
 			&i.ShareToken,
 			&i.WaSentAt,
+			&i.SubmittedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -181,7 +185,7 @@ func (q *Queries) ListNightsBetween(ctx context.Context, arg ListNightsBetweenPa
 }
 
 const listNightsByStatus = `-- name: ListNightsByStatus :many
-SELECT id, patrol_date, status, situation_note, first_reported_at, rain_requested_at, closed_at, fine_rate, needs_review, created_at, share_token, wa_sent_at FROM patrol_night WHERE status = $1 ORDER BY patrol_date DESC
+SELECT id, patrol_date, status, situation_note, first_reported_at, rain_requested_at, closed_at, fine_rate, needs_review, created_at, share_token, wa_sent_at, submitted_at FROM patrol_night WHERE status = $1 ORDER BY patrol_date DESC
 `
 
 func (q *Queries) ListNightsByStatus(ctx context.Context, status string) ([]PatrolNight, error) {
@@ -206,6 +210,7 @@ func (q *Queries) ListNightsByStatus(ctx context.Context, status string) ([]Patr
 			&i.CreatedAt,
 			&i.ShareToken,
 			&i.WaSentAt,
+			&i.SubmittedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -218,7 +223,7 @@ func (q *Queries) ListNightsByStatus(ctx context.Context, status string) ([]Patr
 }
 
 const listNightsToNotify = `-- name: ListNightsToNotify :many
-SELECT id, patrol_date, status, situation_note, first_reported_at, rain_requested_at, closed_at, fine_rate, needs_review, created_at, share_token, wa_sent_at FROM patrol_night
+SELECT id, patrol_date, status, situation_note, first_reported_at, rain_requested_at, closed_at, fine_rate, needs_review, created_at, share_token, wa_sent_at, submitted_at FROM patrol_night
 WHERE closed_at IS NOT NULL AND wa_sent_at IS NULL AND closed_at > $1::timestamptz
 ORDER BY patrol_date
 `
@@ -245,6 +250,7 @@ func (q *Queries) ListNightsToNotify(ctx context.Context, closedAfter pgtype.Tim
 			&i.CreatedAt,
 			&i.ShareToken,
 			&i.WaSentAt,
+			&i.SubmittedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -257,7 +263,7 @@ func (q *Queries) ListNightsToNotify(ctx context.Context, closedAfter pgtype.Tim
 }
 
 const listUnclosedNightsBefore = `-- name: ListUnclosedNightsBefore :many
-SELECT id, patrol_date, status, situation_note, first_reported_at, rain_requested_at, closed_at, fine_rate, needs_review, created_at, share_token, wa_sent_at FROM patrol_night
+SELECT id, patrol_date, status, situation_note, first_reported_at, rain_requested_at, closed_at, fine_rate, needs_review, created_at, share_token, wa_sent_at, submitted_at FROM patrol_night
 WHERE closed_at IS NULL AND patrol_date < $1
 ORDER BY patrol_date
 `
@@ -284,6 +290,7 @@ func (q *Queries) ListUnclosedNightsBefore(ctx context.Context, patrolDate pgtyp
 			&i.CreatedAt,
 			&i.ShareToken,
 			&i.WaSentAt,
+			&i.SubmittedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -354,6 +361,23 @@ type SetNightStatusParams struct {
 
 func (q *Queries) SetNightStatus(ctx context.Context, arg SetNightStatusParams) error {
 	_, err := q.db.Exec(ctx, setNightStatus, arg.ID, arg.Status, arg.RainRequestedAt)
+	return err
+}
+
+const submitNight = `-- name: SubmitNight :exec
+UPDATE patrol_night
+SET submitted_at = $2,
+    first_reported_at = COALESCE(first_reported_at, $2)
+WHERE id = $1
+`
+
+type SubmitNightParams struct {
+	ID          int64              `json:"id"`
+	SubmittedAt pgtype.Timestamptz `json:"submitted_at"`
+}
+
+func (q *Queries) SubmitNight(ctx context.Context, arg SubmitNightParams) error {
+	_, err := q.db.Exec(ctx, submitNight, arg.ID, arg.SubmittedAt)
 	return err
 }
 

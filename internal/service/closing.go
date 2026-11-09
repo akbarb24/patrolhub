@@ -148,7 +148,7 @@ func (s *ClosingService) closeNight(ctx context.Context, d domain.Date, set Sett
 
 		res := domain.CloseNight(domain.CloseInput{
 			Status:     domain.NightStatus(night.Status),
-			HasReport:  night.FirstReportedAt.Valid,
+			HasReport:  night.SubmittedAt.Valid, // only a submitted report counts
 			PhotoCount: int(photos),
 			MinPhotos:  set.MinPhotos,
 			FineRate:   set.FinePerAbsence,

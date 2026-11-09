@@ -93,7 +93,7 @@ func TestRecapSituations(t *testing.T) {
 
 func TestRecapOnlyShowsClosedNights(t *testing.T) {
 	a, reporter := patrolApp(t) // Wed 22:30, the night is open
-	reporter.hxPost("/patrol/tonight/attendance/1", url.Values{"present": {"true"}})
+	reporter.submitReport(url.Values{"note": {"Aman"}, "present": {"1"}})
 	_, body := a.anonymous().do("GET", "/recap/2026/10", nil)
 	contains(t, body, "Belum ada data untuk bulan ini.")
 	notContains(t, body, "Anton")

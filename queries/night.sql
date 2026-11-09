@@ -13,6 +13,12 @@ UPDATE patrol_night
 SET first_reported_at = $2
 WHERE id = $1 AND first_reported_at IS NULL;
 
+-- name: SubmitNight :exec
+UPDATE patrol_night
+SET submitted_at = $2,
+    first_reported_at = COALESCE(first_reported_at, $2)
+WHERE id = $1;
+
 -- name: UpdateSituation :exec
 UPDATE patrol_night SET situation_note = $2 WHERE id = $1;
 

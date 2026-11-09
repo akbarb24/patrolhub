@@ -34,9 +34,7 @@ func newReportEnv(t *testing.T) (*closeEnv, *ReportService, *fakeMessenger) {
 func TestReportSentOnceAfterClose(t *testing.T) {
 	e, reports, msg := newReportEnv(t)
 	ctx := context.Background()
-	e.patrol.ToggleAttendance(ctx, wed2230, e.members["anton"].ID, true, rc)
-	e.patrol.UpdateSituation(ctx, wed2230, "Aman", rc)
-	e.addPhotos(wedNight, 3)
+	e.submit(wed2230, "Aman", "anton")
 	e.tick(afterWed)
 
 	if err := reports.Tick(ctx, afterWed); err != nil {
@@ -89,7 +87,6 @@ func TestReportRetriedAfterFailedSend(t *testing.T) {
 func TestReportRainNightHasNoPhotoLink(t *testing.T) {
 	e, reports, msg := newReportEnv(t)
 	ctx := context.Background()
-	e.patrol.UpdateSituation(ctx, wed2230, "Hujan deras", rc)
 	e.patrol.RequestRain(ctx, wed2230, rc)
 	e.addPhotos(wedNight, 3)
 	e.tick(afterWed)

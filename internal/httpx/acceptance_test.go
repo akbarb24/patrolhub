@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -83,28 +82,33 @@ func TestAcceptanceChecklist(t *testing.T) {
 		admin.mustPost("/admin/settings", "/admin/settings", settingsForm("22:00", "06:00", 5000), http.StatusSeeOther)
 	})
 
-	// ---- F2.5-F2.8 and F2.11: check two members, write the situation, take 3 photos.
-	t.Run("F2.5-F2.8 and F2.11 report and audit", func(t *testing.T) {
+	// ---- F2.5-F2.8: take 3 photos, check two members, write the situation, then submit.
+	// Product-owner change to F2.5/F2.6/F2.11: nothing but photos is saved before
+	// "Kirim Laporan", and the report is read-only once sent.
+	t.Run("F2.5-F2.8 submit and audit", func(t *testing.T) {
 		a.now = utc(2026, 10, 12, 22, 40)
-		phone.hxPost("/patrol/tonight/attendance/2", url.Values{"present": {"true"}}) // Anton
-		phone.hxPost("/patrol/tonight/attendance/4", url.Values{"present": {"true"}}) // Citra (swap-in)
-		phone.hxPost("/patrol/tonight/situation", url.Values{"note": {"Aman, lampu pos mati"}})
 		for i := 0; i < 3; i++ {
 			if resp, _ := phone.uploadPhoto(fakeJPEG(100+i), nil); resp.StatusCode != 200 {
 				t.Fatalf("photo %d: %d", i, resp.StatusCode)
 			}
 		}
-		body := phone.mustGet("/patrol/tonight") // a refresh keeps it all
-		contains(t, body, "3 dari minimal 3 foto", ">Aman, lampu pos mati</textarea>")
-		for _, id := range []string{"2", "4"} {
-			if row := regexp.MustCompile(`(?s)<li id="member-` + id + `">.*?</li>`).FindString(body); !strings.Contains(row, "checked") {
-				t.Errorf("member %s lost its check mark", id)
-			}
+		contains(t, phone.mustGet("/patrol/tonight"), "3 dari minimal 3 foto", "Kirim Laporan")
+		resp, _ := phone.hxPost("/patrol/tonight/submit", url.Values{
+			"note": {"Aman, lampu pos mati"}, "present": {"2", "4"}, // Anton, Citra (swap-in)
+		})
+		if resp.StatusCode != http.StatusNoContent {
+			t.Fatalf("submit: %d", resp.StatusCode)
+		}
+		body := phone.mustGet("/patrol/tonight") // read-only from now on
+		contains(t, body, "Laporan sudah dikirim pukul", "Aman, lampu pos mati")
+		notContains(t, body, `type="checkbox"`, "<textarea")
+		if n := strings.Count(body, ">Hadir<"); n != 2 {
+			t.Errorf("present: %d", n)
 		}
 		var n int
 		a.pool.QueryRow(context.Background(), `SELECT count(*) FROM audit_log WHERE actor = 'ANONYMOUS' AND ip IS NOT NULL AND user_agent IS NOT NULL`).Scan(&n)
-		if n != 6 {
-			t.Errorf("audit entries: %d, want 6 (2 toggles, 1 note, 3 photos)", n)
+		if n != 4 {
+			t.Errorf("audit entries: %d, want 4 (3 photos, 1 submit)", n)
 		}
 	})
 

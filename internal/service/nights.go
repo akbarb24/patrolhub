@@ -64,6 +64,7 @@ type NightDetail struct {
 	Status          domain.NightStatus
 	Situation       string
 	FirstReportedAt *time.Time
+	SubmittedAt     *time.Time
 	RainRequestedAt *time.Time
 	ClosedAt        *time.Time
 	FineRate        *int
@@ -165,6 +166,7 @@ func (s *NightService) Detail(ctx context.Context, date domain.Date) (NightDetai
 	d := NightDetail{
 		Date: date, Status: domain.NightStatus(n.Status), Situation: n.SituationNote, NeedsReview: n.NeedsReview, MinPhotos: set.MinPhotos,
 		FirstReportedAt: timePtr(n.FirstReportedAt),
+		SubmittedAt:     timePtr(n.SubmittedAt),
 		RainRequestedAt: timePtr(n.RainRequestedAt),
 		ClosedAt:        timePtr(n.ClosedAt),
 	}
@@ -286,18 +288,27 @@ func (s *NightService) ConfirmRain(ctx context.Context, adminID int64, date doma
 	})
 }
 
-// RejectRain turns a rain request down: the night counts as a normal reported night.
-// If it already closed, fines are computed now from the rate frozen at closing.
+// RejectRain turns a rain request down. A submitted night then counts as a normal
+// reported night. A night that was never submitted reopens for reporting while it is
+// still open, and becomes NO_REPORT (everyone absent) once closed. If it already
+// closed, fines are computed now from the rate frozen at closing.
 func (s *NightService) RejectRain(ctx context.Context, adminID int64, date domain.Date) error {
 	return s.adminAction(ctx, adminID, date, "reject_rain", "", func(q *db.Queries, n db.PatrolNight, set Settings) (map[string]any, error) {
 		if n.Status != string(domain.NightRainRequested) {
 			return nil, ErrInvalidState
 		}
-		if err := q.SetNightStatus(ctx, db.SetNightStatusParams{ID: n.ID, Status: string(domain.NightReported)}); err != nil {
+		status := domain.NightReported
+		switch {
+		case !n.SubmittedAt.Valid && !n.ClosedAt.Valid:
+			status = domain.NightOpen
+		case !n.SubmittedAt.Valid:
+			status = domain.NightNoReport
+		}
+		if err := q.SetNightStatus(ctx, db.SetNightStatusParams{ID: n.ID, Status: string(status)}); err != nil {
 			return nil, err
 		}
 		if !n.ClosedAt.Valid {
-			return nil, nil // the closer will compute fines as for any reported night
+			return nil, nil // the closer will compute fines as for any other night
 		}
 		rate := fineRate(n, set)
 		rows, err := q.ListAttendanceByNight(ctx, n.ID)
@@ -306,7 +317,14 @@ func (s *NightService) RejectRain(ctx context.Context, adminID int64, date domai
 		}
 		statuses := make(map[int64]domain.AttendanceStatus, len(rows))
 		for _, r := range rows {
-			statuses[r.MemberID] = domain.AttendanceStatus(r.Status)
+			st := domain.AttendanceStatus(r.Status)
+			if status == domain.NightNoReport && st != domain.Absent {
+				st = domain.Absent // no report: everyone counts as absent, as at close
+				if err := q.SetAttendanceStatus(ctx, db.SetAttendanceStatusParams{NightID: n.ID, MemberID: r.MemberID, Status: string(st)}); err != nil {
+					return nil, err
+				}
+			}
+			statuses[r.MemberID] = st
 		}
 		for id, fine := range domain.RecalculateFines(statuses, rate) {
 			if err := q.SetAttendanceFine(ctx, db.SetAttendanceFineParams{NightID: n.ID, MemberID: id, FineAmount: int32(fine)}); err != nil {
@@ -317,7 +335,8 @@ func (s *NightService) RejectRain(ctx context.Context, adminID int64, date domai
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"fine_rate": rate}, q.SetNeedsReview(ctx, db.SetNeedsReviewParams{ID: n.ID, NeedsReview: int(photos) < set.MinPhotos})
+		review := status == domain.NightReported && int(photos) < set.MinPhotos
+		return map[string]any{"fine_rate": rate, "status": status}, q.SetNeedsReview(ctx, db.SetNeedsReviewParams{ID: n.ID, NeedsReview: review})
 	})
 }
 

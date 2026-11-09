@@ -45,6 +45,26 @@ func (b *browser) uploadPhoto(data []byte, fields map[string]string) (*http.Resp
 	})
 }
 
+// photos uploads n small photos.
+func (b *browser) photos(n int) {
+	b.t.Helper()
+	for i := 0; i < n; i++ {
+		if resp, body := b.uploadPhoto(fakeJPEG(20), nil); resp.StatusCode != 200 {
+			b.t.Fatalf("photo %d: %d %s", i, resp.StatusCode, body)
+		}
+	}
+}
+
+// submitReport uploads the minimum photos and sends the report form.
+func (b *browser) submitReport(form url.Values) {
+	b.t.Helper()
+	b.photos(3)
+	resp, body := b.hxPost("/patrol/tonight/submit", form)
+	if resp.StatusCode != http.StatusNoContent || resp.Header.Get("HX-Redirect") != "/patrol/tonight" {
+		b.t.Fatalf("submit: %d %q %s", resp.StatusCode, resp.Header.Get("HX-Redirect"), body)
+	}
+}
+
 func fakeJPEG(n int) []byte {
 	return append([]byte{0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, 'J', 'F', 'I', 'F', 0}, bytes.Repeat([]byte{7}, n)...)
 }
@@ -73,17 +93,17 @@ func TestTonightPageClosedAndOpen(t *testing.T) {
 	contains(t, body, "Laporan Ronda RT 02", "Tanggal: Rabu, 7 Oktober 2026", "Laporan dibuka pukul 22.00", "Anton (A-1)", "C-3",
 		`id="lock-modal"`, `aria-modal="true"`, `data-countdown="3600"`, ">01:00:00<", "lock.js", "inert")
 	notContains(t, body, `type="checkbox"`, "photo.js")
-	if resp, _ := b.hxPost("/patrol/tonight/situation", url.Values{"note": {"x"}}); resp.StatusCode != http.StatusConflict ||
+	if resp, _ := b.hxPost("/patrol/tonight/submit", url.Values{"note": {"x"}}); resp.StatusCode != http.StatusConflict ||
 		resp.Header.Get("HX-Redirect") != "/patrol/tonight" {
 		t.Errorf("write outside window: %d redirect=%q", resp.StatusCode, resp.Header.Get("HX-Redirect"))
 	}
 
 	a.now = wibTime(2026, 10, 8, 0, 30) // after midnight: still Wednesday's night
 	body = b.mustGet("/patrol/tonight")
-	contains(t, body, "Tanggal: Rabu, 7 Oktober 2026", `type="checkbox"`, `hx-post="/patrol/tonight/attendance/`, "photo.js", "patrol.js",
-		`capture="environment"`, `accept="image/*"`, "Ajukan Hujan", "0 dari minimal 3 foto", `maxlength="1000"`, "Tambah anggota pengganti", "Dewi (D-4)",
-		`data-reload-in="19800"`)
-	notContains(t, body, "lock-modal", "lock.js")
+	contains(t, body, "Tanggal: Rabu, 7 Oktober 2026", `type="checkbox"`, `name="present"`, `hx-post="/patrol/tonight/submit"`, "photo.js", "patrol.js",
+		`capture="environment"`, `accept="image/*"`, "Laporkan Hujan", "0 dari minimal 3 foto", `data-count="0"`, `maxlength="1000"`, `name="note"`,
+		"Tambah anggota pengganti", "Dewi (D-4)", `data-reload-in="19800"`, "Kirim Laporan", `form="report-form"`, "tidak bisa diubah lagi")
+	notContains(t, body, "lock-modal", "lock.js", "/patrol/tonight/attendance", "/patrol/tonight/situation")
 	if n := strings.Count(body, `type="checkbox"`); n != 3 {
 		t.Errorf("checkboxes: %d", n)
 	}
@@ -92,48 +112,90 @@ func TestTonightPageClosedAndOpen(t *testing.T) {
 	}
 }
 
-func TestToggleSituationAndRefresh(t *testing.T) {
+func TestSubmitReport(t *testing.T) {
 	_, b := patrolApp(t)
 
-	resp, frag := b.hxPost("/patrol/tonight/attendance/1", url.Values{"present": {"true"}})
-	if resp.StatusCode != 200 || !strings.HasPrefix(strings.TrimSpace(frag), "<li") || !strings.Contains(frag, "checked") ||
-		!strings.Contains(frag, `{&#34;present&#34;: false}`) || resp.Header.Get("Cache-Control") != "no-store" {
-		t.Fatalf("toggle fragment: %d %q\n%s", resp.StatusCode, resp.Header.Get("Cache-Control"), frag)
+	// The old autosave endpoints are gone.
+	for _, path := range []string{"/patrol/tonight/attendance/1", "/patrol/tonight/situation", "/patrol/tonight/walk-in"} {
+		if resp, _ := b.hxPost(path, url.Values{"present": {"true"}, "note": {"x"}, "member_id": {"4"}}); resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusMethodNotAllowed {
+			t.Errorf("%s: %d", path, resp.StatusCode)
+		}
 	}
 
-	resp, frag = b.hxPost("/patrol/tonight/situation", url.Values{"note": {"Aman terkendali"}})
-	if resp.StatusCode != 200 || !strings.Contains(frag, "Tersimpan pukul 22.30") {
-		t.Fatalf("situation: %d %s", resp.StatusCode, frag)
-	}
-
-	body := b.mustGet("/patrol/tonight") // a refresh keeps everything
-	contains(t, body, "Aman terkendali", ">Aman terkendali</textarea>")
-	row := regexp.MustCompile(`(?s)<li id="member-1">.*?</li>`).FindString(body)
-	if !strings.Contains(row, "checked") {
-		t.Errorf("Anton's checkbox lost after refresh:\n%s", row)
-	}
-
+	b.photos(2)
 	for _, tc := range []struct {
 		name   string
-		path   string
 		form   url.Values
 		status int
+		msg    string
 	}{
-		{"not on the team", "/patrol/tonight/attendance/4", url.Values{"present": {"true"}}, http.StatusBadRequest},
-		{"bad present value", "/patrol/tonight/attendance/1", url.Values{"present": {"maybe"}}, http.StatusBadRequest},
-		{"bad member id", "/patrol/tonight/attendance/abc", url.Values{"present": {"true"}}, http.StatusBadRequest},
-		{"situation too long", "/patrol/tonight/situation", url.Values{"note": {strings.Repeat("x", 1001)}}, http.StatusUnprocessableEntity},
+		{"too few photos", url.Values{"note": {"Aman"}}, http.StatusUnprocessableEntity, "Foto belum cukup"},
 	} {
-		if resp, _ := b.hxPost(tc.path, tc.form); resp.StatusCode != tc.status {
-			t.Errorf("%s: %d, want %d", tc.name, resp.StatusCode, tc.status)
+		if resp, body := b.hxPost("/patrol/tonight/submit", tc.form); resp.StatusCode != tc.status || !strings.Contains(body, tc.msg) {
+			t.Errorf("%s: %d %s", tc.name, resp.StatusCode, body)
 		}
+	}
+	b.photos(1)
+	for _, tc := range []struct {
+		name   string
+		form   url.Values
+		status int
+		msg    string
+	}{
+		{"empty note", url.Values{"note": {"  "}}, http.StatusUnprocessableEntity, "Isi kolom situasi"},
+		{"note too long", url.Values{"note": {strings.Repeat("x", 1001)}}, http.StatusUnprocessableEntity, "1.000"},
+		{"not on the team", url.Values{"note": {"Aman"}, "present": {"4"}}, http.StatusBadRequest, "tidak ada di tim"},
+		{"bad member id", url.Values{"note": {"Aman"}, "present": {"abc"}}, http.StatusBadRequest, ""},
+		{"walk-in already on team", url.Values{"note": {"Aman"}, "walk_in": {"1"}}, http.StatusConflict, "sudah ada"},
+	} {
+		if resp, body := b.hxPost("/patrol/tonight/submit", tc.form); resp.StatusCode != tc.status || !strings.Contains(body, tc.msg) {
+			t.Errorf("%s: %d %s", tc.name, resp.StatusCode, body)
+		}
+	}
+	// Nothing was saved by the rejected attempts.
+	body := b.mustGet("/patrol/tonight")
+	contains(t, body, `id="report-form"`)
+
+	resp, frag := b.hxPost("/patrol/tonight/submit", url.Values{"note": {"Aman terkendali"}, "present": {"1"}, "walk_in": {"4"}})
+	if resp.StatusCode != http.StatusNoContent || resp.Header.Get("HX-Redirect") != "/patrol/tonight" || resp.Header.Get("Cache-Control") != "no-store" {
+		t.Fatalf("submit: %d %q\n%s", resp.StatusCode, resp.Header.Get("HX-Redirect"), frag)
+	}
+
+	// The page is now a read-only summary.
+	body = b.mustGet("/patrol/tonight")
+	contains(t, body, "Laporan sudah dikirim pukul 22.30.", "tidak bisa diubah lagi", "Aman terkendali", "Dewi (D-4)", "pengganti",
+		"Hadir", "Tidak hadir", "3 dari minimal 3 foto", "/patrol/tonight/photos/1/thumb", `data-reload-in="27000"`)
+	notContains(t, body, `id="report-form"`, `type="checkbox"`, "Kirim Laporan", "Laporkan Hujan", "photo.js", "lock-modal", "<textarea")
+	if n := strings.Count(body, ">Hadir<"); n != 2 {
+		t.Errorf("present badges: %d", n)
+	}
+
+	// Any further write bounces back to the summary.
+	for _, path := range []string{"/patrol/tonight/submit", "/patrol/tonight/rain"} {
+		if resp, _ := b.hxPost(path, url.Values{"note": {"lagi"}}); resp.StatusCode != http.StatusConflict || resp.Header.Get("HX-Redirect") != "/patrol/tonight" {
+			t.Errorf("%s after submit: %d", path, resp.StatusCode)
+		}
+	}
+	if resp, _ := b.uploadPhoto(fakeJPEG(20), nil); resp.StatusCode != http.StatusConflict {
+		t.Errorf("photo after submit: %d", resp.StatusCode)
+	}
+}
+
+func TestSubmitWithoutHtmxRedirects(t *testing.T) {
+	_, b := patrolApp(t)
+	b.photos(3)
+	_, page := b.do("GET", "/patrol/tonight", nil)
+	token := hxToken.FindStringSubmatch(page)[1]
+	resp, _ := b.do("POST", "/patrol/tonight/submit", url.Values{"note": {"Aman"}, "csrf_token": {token}})
+	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/patrol/tonight" {
+		t.Fatalf("plain form submit: %d %q", resp.StatusCode, resp.Header.Get("Location"))
 	}
 }
 
 func TestPostWithoutTokenIsRejected(t *testing.T) {
 	_, b := patrolApp(t)
 	b.mustGet("/patrol/tonight")
-	if resp, _ := b.do("POST", "/patrol/tonight/situation", url.Values{"note": {"x"}}); resp.StatusCode != http.StatusForbidden {
+	if resp, _ := b.doRaw("POST", "/patrol/tonight/submit", strings.NewReader("note=x"), map[string]string{"Content-Type": "application/x-www-form-urlencoded"}); resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("got %d", resp.StatusCode)
 	}
 }
@@ -179,24 +241,15 @@ func TestPhotoUpload(t *testing.T) {
 	contains(t, b.mustGet("/patrol/tonight"), "10 dari minimal 3 foto")
 }
 
-func TestRainRequestAndWalkIn(t *testing.T) {
+func TestRainRequestLocksTheReport(t *testing.T) {
 	_, b := patrolApp(t)
-
-	resp, frag := b.hxPost("/patrol/tonight/walk-in", url.Values{"member_id": {"4"}})
-	if resp.StatusCode != 200 || !strings.Contains(frag, `id="team-section"`) || !strings.Contains(frag, "Dewi (D-4)") || !strings.Contains(frag, "pengganti") {
-		t.Fatalf("walk-in: %d\n%s", resp.StatusCode, frag)
-	}
-	if resp, _ := b.hxPost("/patrol/tonight/walk-in", url.Values{"member_id": {"4"}}); resp.StatusCode != http.StatusConflict {
-		t.Errorf("walk-in twice: %d", resp.StatusCode)
-	}
-
-	resp, frag = b.hxPost("/patrol/tonight/rain", url.Values{})
-	if resp.StatusCode != 200 || !strings.Contains(frag, "Hujan diajukan, menunggu konfirmasi pengurus.") || strings.Contains(frag, "<button") {
-		t.Fatalf("rain: %d\n%s", resp.StatusCode, frag)
+	resp, _ := b.hxPost("/patrol/tonight/rain", url.Values{})
+	if resp.StatusCode != http.StatusNoContent || resp.Header.Get("HX-Redirect") != "/patrol/tonight" {
+		t.Fatalf("rain: %d %q", resp.StatusCode, resp.Header.Get("HX-Redirect"))
 	}
 	body := b.mustGet("/patrol/tonight")
-	contains(t, body, "Hujan diajukan, menunggu konfirmasi pengurus.")
-	notContains(t, body, "Ajukan Hujan")
+	contains(t, body, "Hujan diajukan, menunggu konfirmasi pengurus.", "tidak bisa diubah lagi", "Tidak ada catatan.")
+	notContains(t, body, "Laporkan Hujan", "Kirim Laporan", `id="report-form"`, "lock-modal")
 }
 
 func TestLockedNightShowsModal(t *testing.T) {
@@ -208,7 +261,7 @@ func TestLockedNightShowsModal(t *testing.T) {
 	body := b.mustGet("/patrol/tonight")
 	contains(t, body, `id="lock-modal"`, "Laporan malam ini sudah ditutup.", "Laporan berikutnya dibuka pukul 22.00",
 		`data-countdown="84600"`, ">23:30:00<", "Anton (A-1)")
-	notContains(t, body, "photo.js", "Ajukan Hujan")
+	notContains(t, body, "photo.js", "Laporkan Hujan", "Kirim Laporan")
 }
 
 func TestPatrolRateLimit(t *testing.T) {
@@ -225,9 +278,7 @@ func TestPatrolRateLimit(t *testing.T) {
 
 func TestAuditTrailAfterPublicActions(t *testing.T) {
 	a, b := patrolApp(t)
-	b.hxPost("/patrol/tonight/attendance/1", url.Values{"present": {"true"}})
-	b.hxPost("/patrol/tonight/situation", url.Values{"note": {"Aman"}})
-	b.uploadPhoto(fakeJPEG(30), nil)
+	b.submitReport(url.Values{"note": {"Aman"}, "present": {"1"}})
 
 	rows, err := a.pool.Query(t.Context(), `SELECT action, actor, ip, user_agent FROM audit_log ORDER BY id`)
 	if err != nil {
@@ -244,7 +295,7 @@ func TestAuditTrailAfterPublicActions(t *testing.T) {
 		}
 		got = append(got, action)
 	}
-	if strings.Join(got, ",") != "toggle_attendance,update_situation,upload_photo" {
+	if strings.Join(got, ",") != "upload_photo,upload_photo,upload_photo,submit_report" {
 		t.Fatalf("audit: %v", got)
 	}
 }

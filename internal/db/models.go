@@ -71,6 +71,7 @@ type PatrolNight struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	ShareToken      *string            `json:"share_token"`
 	WaSentAt        pgtype.Timestamptz `json:"wa_sent_at"`
+	SubmittedAt     pgtype.Timestamptz `json:"submitted_at"`
 }
 
 type PatrolPhoto struct {

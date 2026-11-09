@@ -74,6 +74,7 @@
       var list = document.getElementById('photo-list');
       list.outerHTML = html;
       htmx.process(document.getElementById('photo-list'));
+      document.dispatchEvent(new Event('patrol:photos-changed'));
       say('Foto terunggah', true);
     } catch (e) {
       say('Gagal mengunggah foto, coba lagi.');

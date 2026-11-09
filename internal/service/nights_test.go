@@ -29,8 +29,7 @@ func newNightEnv(t *testing.T) *nightEnv {
 		t.Fatal(err)
 	}
 	e.adminID = admin.ID
-	e.patrol.ToggleAttendance(context.Background(), wed2230, e.members["anton"].ID, true, rc)
-	e.addPhotos(wedNight, 3)
+	e.submit(wed2230, "Aman", "anton")
 	e.tick(afterWed)
 	return e
 }
@@ -83,7 +82,7 @@ func TestMarkRainBeforeClose(t *testing.T) {
 	e := newCloseEnv(t, "2026-10-01")
 	ctx := context.Background()
 	ns := NewNightService(e.pool, e.settings, e.store)
-	e.patrol.ToggleAttendance(ctx, wed2230, e.members["anton"].ID, true, rc)
+	e.submit(wed2230, "Aman", "anton")
 	if err := ns.MarkRain(ctx, 1, wedNight); err != nil {
 		t.Fatal(err)
 	}
@@ -98,6 +97,7 @@ func TestMarkRainBeforeClose(t *testing.T) {
 	}
 }
 
+// rainRequestedAndClosed: rain was requested on Wednesday (nothing submitted), then the night closed.
 func rainRequestedAndClosed(t *testing.T, photos int) *nightEnv {
 	t.Helper()
 	e := &nightEnv{closeEnv: newCloseEnv(t, "2026-10-01")}
@@ -106,7 +106,6 @@ func rainRequestedAndClosed(t *testing.T, photos int) *nightEnv {
 	ctx := context.Background()
 	admin, _ := NewAdminService(e.pool).Create(ctx, "admin", "correct-horse-battery")
 	e.adminID = admin.ID
-	e.patrol.ToggleAttendance(ctx, wed2230, e.members["anton"].ID, true, rc)
 	e.patrol.RequestRain(ctx, wed2230, rc)
 	e.addPhotos(wedNight, photos)
 	e.tick(afterWed)
@@ -135,6 +134,7 @@ func TestConfirmRain(t *testing.T) {
 	}
 }
 
+// A rejected rain request without a submitted report counts as no report.
 func TestRejectRainFinesUseTheFrozenRate(t *testing.T) {
 	e := rainRequestedAndClosed(t, 3)
 	ctx := context.Background()
@@ -146,10 +146,10 @@ func TestRejectRainFinesUseTheFrozenRate(t *testing.T) {
 		t.Fatal(err)
 	}
 	n := e.night(wedNight)
-	if n.Status != "REPORTED" || n.NeedsReview {
+	if n.Status != "NO_REPORT" || n.NeedsReview {
 		t.Fatalf("%+v", n)
 	}
-	want := map[string]string{"Anton (A-1)": "PRESENT/0", "Budi (B-2)": "ABSENT/5000", "C-3": "ABSENT/5000"}
+	want := map[string]string{"Anton (A-1)": "ABSENT/5000", "Budi (B-2)": "ABSENT/5000", "C-3": "ABSENT/5000"}
 	for who, v := range e.fines(wedNight) {
 		if want[who] != v {
 			t.Errorf("%s: %s, want %s", who, v, want[who])
@@ -160,9 +160,16 @@ func TestRejectRainFinesUseTheFrozenRate(t *testing.T) {
 	}
 }
 
-func TestRejectRainKeepsNeedsReviewWhenPhotosAreMissing(t *testing.T) {
+// Nights requested as rain before submit-once existed may already hold a submitted
+// report; rejecting those keeps them REPORTED, with review when photos are missing.
+func TestRejectRainOnSubmittedNightKeepsItReported(t *testing.T) {
 	e := rainRequestedAndClosed(t, 1)
-	if err := e.nights.RejectRain(context.Background(), e.adminID, wedNight); err != nil {
+	ctx := context.Background()
+	n := e.night(wedNight)
+	if err := db.New(e.pool).SubmitNight(ctx, db.SubmitNightParams{ID: n.ID, SubmittedAt: pgTime(wed2230)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.nights.RejectRain(ctx, e.adminID, wedNight); err != nil {
 		t.Fatal(err)
 	}
 	if n := e.night(wedNight); n.Status != "REPORTED" || !n.NeedsReview {
@@ -178,11 +185,18 @@ func TestRejectRainBeforeCloseLeavesFinesToTheCloser(t *testing.T) {
 	if err := ns.RejectRain(ctx, 1, wedNight); err != nil {
 		t.Fatal(err)
 	}
-	if n := e.night(wedNight); n.Status != "REPORTED" || n.ClosedAt.Valid {
+	if n := e.night(wedNight); n.Status != "OPEN" || n.ClosedAt.Valid {
 		t.Fatalf("%+v", n)
 	}
-	e.addPhotos(wedNight, 3)
+	// The report page is open again, so the team can still submit.
+	if v, _ := e.patrol.Tonight(ctx, wed2230); v.Locked {
+		t.Fatalf("still locked after the rejection: %+v", v)
+	}
+	e.submit(wed2230, "Ternyata tidak hujan", "anton")
 	e.tick(afterWed)
+	if n := e.night(wedNight); n.Status != "REPORTED" {
+		t.Fatalf("%+v", n)
+	}
 	if got := e.fines(wedNight)["C-3"]; got != "ABSENT/5000" {
 		t.Fatalf("closer fines: %s", got)
 	}
@@ -265,7 +279,7 @@ func TestListAndDetail(t *testing.T) {
 	e.tick(time.Date(2026, 10, 15, 6, 5, 0, 0, afterWed.Location()))
 
 	pending, rows, err := e.nights.List(ctx, 2026, time.October, false)
-	if err != nil || len(pending) != 1 || pending[0].Date != wedNight || pending[0].Photos != 1 || pending[0].Present != 1 || pending[0].Total != 3 {
+	if err != nil || len(pending) != 1 || pending[0].Date != wedNight || pending[0].Photos != 1 || pending[0].Present != 0 || pending[0].Total != 3 {
 		t.Fatalf("pending %+v err %v", pending, err)
 	}
 	if len(rows) != 1 || rows[0].Date != nextWed || rows[0].Status != domain.NightNoReport {
@@ -292,7 +306,7 @@ func TestListAndDetail(t *testing.T) {
 	for _, a := range d.Audit {
 		actions = append(actions, a.Action)
 	}
-	if got := strings.Join(actions, ","); got != "toggle_attendance,request_rain,close_night" {
+	if got := strings.Join(actions, ","); got != "request_rain,close_night" {
 		t.Fatalf("audit %s", got)
 	}
 	if _, err := e.nights.Detail(ctx, wedNight.AddDays(-30)); !errors.Is(err, ErrNotFound) {

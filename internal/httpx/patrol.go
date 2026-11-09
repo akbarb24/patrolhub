@@ -30,10 +30,8 @@ func patrolRoutes(d Deps) http.Handler {
 	r.Use(limitByIP(60), noStore)
 
 	r.Get("/", h.page)
-	r.Post("/attendance/{memberID}", h.toggle)
-	r.Post("/situation", h.situation)
+	r.Post("/submit", h.submit)
 	r.Post("/rain", h.rain)
-	r.Post("/walk-in", h.walkIn)
 	r.Post("/photos", h.addPhoto)
 	r.Get("/photos/{id}/thumb", h.thumb)
 	return r
@@ -55,6 +53,10 @@ func (h patrolHandlers) fail(w http.ResponseWriter, r *http.Request, err error) 
 		http.Error(w, "Anggota tidak ada di tim malam ini.", http.StatusBadRequest)
 	case errors.Is(err, service.ErrAlreadyInTeam):
 		http.Error(w, "Anggota sudah ada di tim.", http.StatusConflict)
+	case errors.Is(err, service.ErrNoSituation):
+		http.Error(w, "Isi kolom situasi terlebih dahulu.", http.StatusUnprocessableEntity)
+	case errors.Is(err, service.ErrTooFewPhotos):
+		http.Error(w, "Foto belum cukup untuk mengirim laporan.", http.StatusUnprocessableEntity)
 	case errors.Is(err, service.ErrTooLong):
 		http.Error(w, "Situasi maksimal 1.000 karakter.", http.StatusUnprocessableEntity)
 	case errors.Is(err, service.ErrTooManyPhotos):
@@ -78,56 +80,49 @@ func (h patrolHandlers) page(w http.ResponseWriter, r *http.Request) {
 	render(w, r, view.TonightPage(v))
 }
 
-func (h patrolHandlers) toggle(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(r, "memberID")
-	present, err := strconv.ParseBool(r.PostFormValue("present"))
-	if !ok || err != nil {
+// submit saves the whole report and locks it; the page then reloads into the summary.
+func (h patrolHandlers) submit(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
 		badRequest(w)
 		return
 	}
-	row, err := h.Patrol.ToggleAttendance(r.Context(), h.Now(), id, present, reportContext(r))
-	if err != nil {
+	in := service.SubmitInput{Note: r.PostFormValue("note")}
+	for _, field := range []struct {
+		name string
+		ids  *[]int64
+	}{{"present", &in.Present}, {"walk_in", &in.WalkIns}} {
+		for _, raw := range r.PostForm[field.name] {
+			id := parseID(raw)
+			if id <= 0 {
+				badRequest(w)
+				return
+			}
+			*field.ids = append(*field.ids, id)
+		}
+	}
+	if err := h.Patrol.Submit(r.Context(), h.Now(), in, reportContext(r)); err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	render(w, r, view.TeamRowItem(row))
-}
-
-func (h patrolHandlers) situation(w http.ResponseWriter, r *http.Request) {
-	now := h.Now()
-	if err := h.Patrol.UpdateSituation(r.Context(), now, r.PostFormValue("note"), reportContext(r)); err != nil {
-		h.fail(w, r, err)
-		return
-	}
-	render(w, r, view.SituationSaved(view.ClockText(now)))
+	reloadTonight(w, r)
 }
 
 func (h patrolHandlers) rain(w http.ResponseWriter, r *http.Request) {
-	now := h.Now()
-	if err := h.Patrol.RequestRain(r.Context(), now, reportContext(r)); err != nil {
+	if err := h.Patrol.RequestRain(r.Context(), h.Now(), reportContext(r)); err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	v, err := h.Patrol.Tonight(r.Context(), now)
-	if err != nil {
-		serverError(w, "tonight", err)
-		return
-	}
-	render(w, r, view.RainPanel(v))
+	reloadTonight(w, r)
 }
 
-func (h patrolHandlers) walkIn(w http.ResponseWriter, r *http.Request) {
-	now := h.Now()
-	if err := h.Patrol.AddWalkIn(r.Context(), now, parseID(r.PostFormValue("member_id")), reportContext(r)); err != nil {
-		h.fail(w, r, err)
+// reloadTonight sends the reporter back to the report page, which is now read-only.
+func reloadTonight(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", "/patrol/tonight")
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	v, err := h.Patrol.Tonight(r.Context(), now)
-	if err != nil {
-		serverError(w, "tonight", err)
-		return
-	}
-	render(w, r, view.TeamSection(v))
+	http.Redirect(w, r, "/patrol/tonight", http.StatusSeeOther)
 }
 
 func optionalFloat(s string) *float64 {

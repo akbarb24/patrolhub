@@ -79,9 +79,7 @@ var afterWed = time.Date(2026, 10, 8, 6, 5, 0, 0, testNow.Location()) // just af
 func TestCloseCompleteReport(t *testing.T) {
 	e := newCloseEnv(t, "2026-10-01")
 	ctx := context.Background()
-	e.patrol.ToggleAttendance(ctx, wed2230, e.members["anton"].ID, true, rc)
-	e.patrol.ToggleAttendance(ctx, wed2230, e.members["budi"].ID, true, rc)
-	e.addPhotos(wedNight, 3)
+	e.submit(wed2230, "Aman", "anton", "budi")
 
 	res := e.tick(afterWed)
 	if res.Closed != 1 {
@@ -128,17 +126,31 @@ func TestCloseNightWithOnlyAPageViewButNoAction(t *testing.T) {
 	}
 }
 
+// Photos alone are a draft: without "Kirim Laporan" the night is not reported.
+func TestCloseNightWithPhotosButNoSubmit(t *testing.T) {
+	e := newCloseEnv(t, "2026-10-01")
+	e.photos(wed2230, 3)
+	e.tick(afterWed)
+	n := e.night(wedNight)
+	if n.Status != "NO_REPORT" || n.NeedsReview || !n.FirstReportedAt.Valid || n.SubmittedAt.Valid {
+		t.Fatalf("%+v", n)
+	}
+	want := map[string]string{"Anton (A-1)": "ABSENT/5000", "Budi (B-2)": "ABSENT/5000", "C-3": "ABSENT/5000"}
+	if got := e.fines(wedNight); !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v", got)
+	}
+}
+
 func TestCloseRainRequested(t *testing.T) {
 	e := newCloseEnv(t, "2026-10-01")
 	ctx := context.Background()
-	e.patrol.ToggleAttendance(ctx, wed2230, e.members["anton"].ID, true, rc)
 	e.patrol.RequestRain(ctx, wed2230, rc)
 	e.tick(afterWed)
 	n := e.night(wedNight)
 	if n.Status != "RAIN_REQUESTED" || !n.NeedsReview || !n.ClosedAt.Valid {
 		t.Fatalf("%+v", n)
 	}
-	want := map[string]string{"Anton (A-1)": "PRESENT/0", "Budi (B-2)": "ABSENT/0", "C-3": "ABSENT/0"}
+	want := map[string]string{"Anton (A-1)": "ABSENT/0", "Budi (B-2)": "ABSENT/0", "C-3": "ABSENT/0"}
 	if got := e.fines(wedNight); !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v", got)
 	}
@@ -147,7 +159,7 @@ func TestCloseRainRequested(t *testing.T) {
 func TestCloseAdminRainedOut(t *testing.T) {
 	e := newCloseEnv(t, "2026-10-01")
 	ctx := context.Background()
-	e.patrol.ToggleAttendance(ctx, wed2230, e.members["anton"].ID, true, rc)
+	e.submit(wed2230, "Aman", "anton")
 	n := e.night(wedNight)
 	db.New(e.pool).SetNightStatus(ctx, db.SetNightStatusParams{ID: n.ID, Status: "RAINED_OUT"})
 	e.tick(afterWed)
@@ -161,10 +173,16 @@ func TestCloseAdminRainedOut(t *testing.T) {
 	}
 }
 
+// Submit needs min_photos, but an admin may raise the minimum before the night closes.
 func TestCloseWithTooFewPhotosNeedsReview(t *testing.T) {
 	e := newCloseEnv(t, "2026-10-01")
-	e.patrol.ToggleAttendance(context.Background(), wed2230, e.members["anton"].ID, true, rc)
-	e.addPhotos(wedNight, 2)
+	ctx := context.Background()
+	e.submit(wed2230, "Aman", "anton")
+	set, _ := e.settings.Load(ctx)
+	set.MinPhotos = 4
+	if err := e.settings.Save(ctx, set); err != nil {
+		t.Fatal(err)
+	}
 	e.tick(afterWed)
 	n := e.night(wedNight)
 	if n.Status != "REPORTED" || !n.NeedsReview {
@@ -178,8 +196,7 @@ func TestCloseWithTooFewPhotosNeedsReview(t *testing.T) {
 func TestTickIsIdempotent(t *testing.T) {
 	e := newCloseEnv(t, "2026-10-01")
 	ctx := context.Background()
-	e.patrol.ToggleAttendance(ctx, wed2230, e.members["anton"].ID, true, rc)
-	e.addPhotos(wedNight, 3)
+	e.submit(wed2230, "Aman", "anton")
 
 	first := e.tick(afterWed)
 	snapshot := func() string {
@@ -245,14 +262,14 @@ func TestTickRespectsGoLiveAndWindow(t *testing.T) {
 
 	// Live from Thursday: Wednesday is left alone even though its window is over.
 	e = newCloseEnv(t, "2026-10-08")
-	e.patrol.ToggleAttendance(ctx, wed2230, e.members["anton"].ID, true, rc)
+	e.submit(wed2230, "Aman", "anton")
 	if res := e.tick(afterWed); res.Closed != 0 || e.night(wedNight).ClosedAt.Valid {
 		t.Fatalf("closed a night before go-live: %+v", res)
 	}
 
 	// Window still open: 05:59 does not close, 06:00 does.
 	e = newCloseEnv(t, "2026-10-01")
-	e.patrol.ToggleAttendance(ctx, wed2230, e.members["anton"].ID, true, rc)
+	e.submit(wed2230, "Aman", "anton")
 	if res := e.tick(time.Date(2026, 10, 8, 5, 59, 0, 0, afterWed.Location())); res.Closed != 0 {
 		t.Fatalf("closed at 05:59: %+v", res)
 	}

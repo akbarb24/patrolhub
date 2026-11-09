@@ -25,15 +25,16 @@ func closedNightWithNote(t *testing.T, rain bool, note string) (*app, *browser) 
 		"min_photos": {"3"}, "max_photos": {"10"}, "go_live_date": {"2026-10-01"},
 	}, http.StatusSeeOther)
 
-	reporter.hxPost("/patrol/tonight/attendance/1", url.Values{"present": {"true"}})
-	reporter.hxPost("/patrol/tonight/situation", url.Values{"note": {note}})
 	for i := 0; i < 3; i++ {
 		if resp, _ := reporter.uploadPhoto(fakeJPEG(50+i), map[string]string{"lat": "-6.2", "lng": "106.8"}); resp.StatusCode != 200 {
 			t.Fatalf("photo %d: %d", i, resp.StatusCode)
 		}
 	}
+	// A rain request locks the report, so a rain night has no submitted report.
 	if rain {
 		reporter.hxPost("/patrol/tonight/rain", url.Values{})
+	} else if resp, body := reporter.hxPost("/patrol/tonight/submit", url.Values{"note": {note}, "present": {"1"}}); resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("submit: %d %s", resp.StatusCode, body)
 	}
 
 	a.now = wibTime(2026, 10, 8, 6, 5)
@@ -112,8 +113,9 @@ func TestRejectRain(t *testing.T) {
 	_, admin := closedNight(t, true)
 	admin.mustPost("/admin/nights", "/admin/nights/2026-10-07/rain/reject", url.Values{}, http.StatusSeeOther)
 	body := admin.mustGet("/admin/nights/2026-10-07")
-	contains(t, body, "Pengajuan hujan ditolak.", "Dilaporkan", "Rp 10.000")
-	contains(t, admin.mustGet("/admin/fines/2026/10"), "Rp 10.000")
+	// Nothing was submitted, so a rejected rain night counts as no report: all three fined.
+	contains(t, body, "Pengajuan hujan ditolak.", "Tanpa laporan", "Rp 15.000")
+	contains(t, admin.mustGet("/admin/fines/2026/10"), "Rp 15.000")
 }
 
 func TestMarkRainDirectly(t *testing.T) {
