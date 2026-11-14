@@ -115,7 +115,12 @@ func serve(cfg config.Config) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	pc, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	pc.MaxConnIdleTime = time.Minute // idle connections must not keep Neon awake
+	pool, err := pgxpool.NewWithConfig(ctx, pc)
 	if err != nil {
 		return err
 	}

@@ -50,6 +50,29 @@ func TestClosesAt(t *testing.T) {
 	}
 }
 
+func TestNextCloserRun(t *testing.T) {
+	today, tomorrow := wib(2026, 11, 14, 6, 1), wib(2026, 11, 15, 6, 1)
+	cases := []struct {
+		name string
+		now  time.Time
+		want time.Time
+	}{
+		{"before close", wib(2026, 11, 14, 5, 0), today},
+		{"at close, before +1m", wib(2026, 11, 14, 6, 0).Add(30 * time.Second), today},
+		{"exactly at the run time", today, tomorrow},
+		{"midday", wib(2026, 11, 14, 12, 0), tomorrow},
+		{"late evening", wib(2026, 11, 14, 23, 0), tomorrow},
+		{"now given in UTC", time.Date(2026, 11, 13, 22, 0, 0, 0, time.UTC), today},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := NextCloserRun(tc.now, Clock{6, 0}); !got.Equal(tc.want) {
+				t.Fatalf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestParseClock(t *testing.T) {
 	c, err := ParseClock("22:05")
 	if err != nil || c != (Clock{22, 5}) || c.String() != "22:05" {

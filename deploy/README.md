@@ -22,6 +22,6 @@ browsers only allow the camera location (GPS) on secure pages.
 ## Operations
 
 - Logs are JSON on stdout: `docker compose logs -f app`.
-- The app migrates the database on start and runs the closing job (every 5 minutes) and the photo
+- The app migrates the database on start and runs the closing job (after each window close) and the photo
   retention job (daily, 183 days) itself.
 - Photos live in `deploy/data/photos`; the database in the `pgdata` volume. `backup.sh` archives both.

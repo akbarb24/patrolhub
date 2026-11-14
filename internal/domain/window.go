@@ -55,3 +55,14 @@ func CurrentWindow(now time.Time, openAt, closeAt Clock) WindowState {
 func ClosesAt(night Date, closeAt Clock) time.Time {
 	return night.AddDays(1).At(closeAt.Hour, closeAt.Min)
 }
+
+// NextCloserRun is the first instant after now at which the closer should run: one
+// minute past the next window close, so the night that just ended is past its boundary.
+func NextCloserRun(now time.Time, closeAt Clock) time.Time {
+	day := DateOf(now)
+	run := day.At(closeAt.Hour, closeAt.Min).Add(time.Minute)
+	if !run.After(now) {
+		run = day.AddDays(1).At(closeAt.Hour, closeAt.Min).Add(time.Minute)
+	}
+	return run
+}
