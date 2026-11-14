@@ -22,6 +22,7 @@ const backfillDays = 14
 type TickResult struct {
 	Created int // nights that had no row (nobody opened the page) and were created
 	Closed  int
+	Next    time.Time // when the closer should run again; zero if settings failed to load
 }
 
 // ClosingService creates missed nights and closes finished ones. Running it twice
@@ -43,6 +44,7 @@ func (s *ClosingService) Tick(ctx context.Context, now time.Time) (TickResult, e
 	if err != nil {
 		return res, err
 	}
+	res.Next = domain.NextCloserRun(now, set.WindowClose)
 	if set.GoLiveDate == nil {
 		return res, nil // the app is not live yet
 	}

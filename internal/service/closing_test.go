@@ -85,6 +85,9 @@ func TestCloseCompleteReport(t *testing.T) {
 	if res.Closed != 1 {
 		t.Fatalf("%+v", res)
 	}
+	if want := time.Date(2026, 10, 9, 6, 1, 0, 0, testNow.Location()); !res.Next.Equal(want) {
+		t.Fatalf("Next = %v, want %v", res.Next, want)
+	}
 	n := e.night(wedNight)
 	if n.Status != "REPORTED" || n.NeedsReview || !n.ClosedAt.Valid || n.FineRate == nil || *n.FineRate != 5000 || !n.ClosedAt.Time.Equal(afterWed) {
 		t.Fatalf("%+v", n)
@@ -216,7 +219,7 @@ func TestTickIsIdempotent(t *testing.T) {
 	}
 	before := snapshot()
 	second := e.tick(afterWed.Add(10 * time.Minute))
-	if second != (TickResult{}) || first.Closed != 1 {
+	if second.Created != 0 || second.Closed != 0 || first.Closed != 1 {
 		t.Fatalf("first %+v second %+v", first, second)
 	}
 	if after := snapshot(); after != before {
@@ -253,7 +256,7 @@ func TestTickRespectsGoLiveAndWindow(t *testing.T) {
 
 	// Not live yet: nothing at all.
 	e := newCloseEnv(t, "")
-	if res := e.tick(afterWed); res != (TickResult{}) {
+	if res := e.tick(afterWed); res.Created != 0 || res.Closed != 0 || res.Next.IsZero() {
 		t.Fatalf("without go_live_date: %+v", res)
 	}
 	if _, err := db.New(e.pool).GetNightByDate(ctx, pgDate(wedNight)); err == nil {
