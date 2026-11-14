@@ -30,8 +30,9 @@ so the quota runs out around 2026-11-17 and the database is suspended until the 
    WhatsApp send is picked up within 6 h). It still ticks once at start-up.
    Effect: ~4 short wake-ups a day instead of 288.
    A tick that returns an error (DB hiccup, WhatsApp gateway down) retries after
-   **30 minutes**, so a failed close or report is not delayed by 6 h. Report errors stop
-   once the night is older than 24 h, so a long gateway outage cannot poll forever.
+   **30 minutes**, doubling for each further failure in a row (up to the 6 h cap), so a
+   failed close or report is not delayed by 6 h, and a night that keeps failing cannot
+   poll forever.
 2. **Session cleanup once a day:** `pgxstore.NewWithCleanupInterval(pool, 24*time.Hour)`
    in `httpx/session.go`. Expired sessions are already rejected on read; cleanup only
    trims the table.

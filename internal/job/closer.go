@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	retryAfter = 30 * time.Minute // after a failed tick
+	retryAfter = 30 * time.Minute // after the first failed tick in a row
 	minSleep   = time.Minute      // never spin, even if the next run is already due
 )
 
@@ -39,14 +39,19 @@ func (c *Closer) tick(ctx context.Context, now time.Time) (next time.Time, faile
 }
 
 // nextSleep is how long to wait after a tick: until next (zero = unknown), at most limit,
-// at most retryAfter after a failure, and at least minSleep.
-func nextSleep(now, next time.Time, failed bool, limit time.Duration) time.Duration {
+// and at least minSleep. After consecutive failed ticks it retries sooner: retryAfter,
+// doubling per further failure, so a night that keeps failing cannot keep Neon awake.
+func nextSleep(now, next time.Time, failures int, limit time.Duration) time.Duration {
 	d := limit
 	if !next.IsZero() && next.Sub(now) < d {
 		d = next.Sub(now)
 	}
-	if failed && d > retryAfter {
-		d = retryAfter
+	if failures > 0 {
+		retry := retryAfter
+		for i := 1; i < failures && retry < limit; i++ {
+			retry *= 2
+		}
+		d = min(d, retry)
 	}
 	return max(d, minSleep)
 }
@@ -57,10 +62,16 @@ func (c *Closer) Run(ctx context.Context) {
 	if maxSleep <= 0 {
 		maxSleep = 6 * time.Hour
 	}
+	failures := 0
 	for {
 		now := time.Now()
 		next, failed := c.tick(ctx, now)
-		t := time.NewTimer(nextSleep(now, next, failed, maxSleep))
+		if failed {
+			failures++
+		} else {
+			failures = 0
+		}
+		t := time.NewTimer(nextSleep(now, next, failures, maxSleep))
 		select {
 		case <-ctx.Done():
 			t.Stop()

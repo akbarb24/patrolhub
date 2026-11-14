@@ -86,9 +86,9 @@ make deploy
   nights never close and nobody is fined.
 - **One machine only.** Two would not corrupt data (closing is idempotent and locks rows), but the
   rate limit is kept in memory per machine, so the 60 requests/min limit would effectively double.
-- **Neon compute:** the closer queries the database every 5 minutes, so the Neon compute will rarely
-  scale to zero. Check that your Neon plan's compute allowance covers an always-on minimum-size
-  compute.
+- **Neon compute:** the app only queries the database for real use and once after each window close
+  (at least every 6 h), so the compute can suspend in between and stay within the free tier's
+  100 CU-hours/month. Do not add short-interval background queries.
 - **Backups:** `backup.sh` needs host cron and is not used on Fly. The database is covered by Neon's
   point-in-time restore (the history window depends on the plan). Photos have no second copy; they
   are deleted after 183 days anyway, and all records live in Postgres.
