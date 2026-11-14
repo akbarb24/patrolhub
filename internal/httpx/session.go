@@ -14,7 +14,8 @@ import (
 // NewSessionManager creates the admin session manager backed by the sessions table.
 func NewSessionManager(pool *pgxpool.Pool, cfg config.Config) *scs.SessionManager {
 	sm := scs.New()
-	sm.Store = pgxstore.New(pool)
+	// Daily, not the default 5 minutes: frequent cleanup would keep Neon from suspending.
+	sm.Store = pgxstore.NewWithCleanupInterval(pool, 24*time.Hour)
 	sm.Lifetime = 14 * 24 * time.Hour
 	sm.Cookie.HttpOnly = true
 	sm.Cookie.SameSite = http.SameSiteLaxMode
